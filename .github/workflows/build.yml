@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -62,3 +62,13 @@ jobs:
           name: Hollow-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish as the latest download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Hollow.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest Hollow.apk --target "$GITHUB_SHA" --prerelease \
+            --title "Hollow latest build" --notes "Built from ${GITHUB_SHA::7}. Install over the previous version."
