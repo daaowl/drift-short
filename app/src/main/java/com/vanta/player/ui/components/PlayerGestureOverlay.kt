@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,7 +67,8 @@ fun PlayerGestureOverlay(
     brightnessGestureEnabled: Boolean,
     volumeGestureEnabled: Boolean,
     onSingleTap: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -172,6 +174,8 @@ fun PlayerGestureOverlay(
                 }
             }
     ) {
+        content()
+
         AnimatedVisibility(
             visible = activeHud != ActiveHudType.NONE,
             enter = fadeIn(),

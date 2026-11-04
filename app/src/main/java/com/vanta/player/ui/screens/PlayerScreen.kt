@@ -136,7 +136,18 @@ fun PlayerScreen(
             .background(Color.Black)
     ) {
         // 1. Vertical Shorts Pager (wraps around collection ends; handles 1-video gracefully)
+        PlayerGestureOverlay(
+            brightnessGestureEnabled = settings.gestureBrightnessEnabled,
+            volumeGestureEnabled = settings.gestureVolumeEnabled,
+            onSingleTap = {
+                lastInteractionTimestamp = System.currentTimeMillis()
+                controlsVisible = true
+                playbackCoordinator.togglePlayPause()
+            }
+        ) {
         VerticalShortsPager(
+            leftEdgeReserved = settings.gestureBrightnessEnabled,
+            rightEdgeReserved = settings.gestureVolumeEnabled,
             currentIndex = playbackState.currentIndex,
             totalCount = playbackState.playlist.size,
             transitionSpeed = settings.shortTransitionSpeed,
@@ -172,16 +183,7 @@ fun PlayerScreen(
             }
         }
 
-        // 2. Gesture Layer (Left 25% Brightness, Right 25% Volume, Middle 50% Video Swipe + Tap Pause/Resume)
-        PlayerGestureOverlay(
-            brightnessGestureEnabled = settings.gestureBrightnessEnabled,
-            volumeGestureEnabled = settings.gestureVolumeEnabled,
-            onSingleTap = {
-                lastInteractionTimestamp = System.currentTimeMillis()
-                controlsVisible = true
-                playbackCoordinator.togglePlayPause()
-            }
-        )
+        } // end gesture overlay wrapper: it now wraps the pager instead of covering it
 
         // 3. Compact Central Play Indicator when paused
         AnimatedVisibility(

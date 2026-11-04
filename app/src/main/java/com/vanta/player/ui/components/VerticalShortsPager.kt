@@ -40,6 +40,8 @@ fun VerticalShortsPager(
     currentIndex: Int,
     totalCount: Int,
     transitionSpeed: ShortTransitionSpeed,
+    leftEdgeReserved: Boolean,
+    rightEdgeReserved: Boolean,
     autoAdvanceEvents: SharedFlow<Int>,
     onContinuousDragFraction: (Float) -> Unit,
     onSwipeSettled: (indexDelta: Int) -> Unit,
@@ -102,11 +104,24 @@ fun VerticalShortsPager(
                     viewportHeightHolder[0] = size.height.toFloat()
                 }
             }
-            .pointerInput(currentIndex, totalCount, transitionSpeed) {
+            .pointerInput(currentIndex, totalCount, transitionSpeed, leftEdgeReserved, rightEdgeReserved) {
                 val touchSlop = viewConfiguration.touchSlop
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+
+                    // Enabled brightness / volume edge zones belong to the gesture overlay.
+                    val boxW = size.width.toFloat().coerceAtLeast(1f)
+                    val boxH = size.height.toFloat().coerceAtLeast(1f)
+                    val inEdgeBand = down.position.y in (boxH * 0.12f)..(boxH * 0.85f)
+                    if (inEdgeBand && (
+                            (leftEdgeReserved && down.position.x <= boxW * 0.25f) ||
+                                (rightEdgeReserved && down.position.x >= boxW * 0.75f)
+                            )
+                    ) {
+                        return@awaitEachGesture
+                    }
+
                     val velocityTracker = VelocityTracker()
                     velocityTracker.addPosition(down.uptimeMillis, down.position)
 
