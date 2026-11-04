@@ -81,6 +81,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -554,7 +556,8 @@ private fun SmallRoundButton(onClick: () -> Unit, label: String, content: @Compo
             .size(38.dp)
             .clip(CircleShape)
             .background(Color(0x47000000))
-            .clickable(onClick = onClick),
+            .clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -581,6 +584,7 @@ private fun VideoPage(
     var videoSize by remember(video.id) { mutableStateOf<VideoSize?>(null) }
     val textureView = remember { TextureView(context) }
     val onRenderedNow by rememberUpdatedState(onRendered)
+    LaunchedEffect(failed) { if (failed) onRenderedNow(video.id) }
 
     if (player != null) {
         DisposableEffect(player, video.id) {
