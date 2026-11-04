@@ -8,7 +8,7 @@ android {
    compileSdk = 34
 
    defaultConfig {
-       applicationId = "com.localshorts.app"
+       applicationId = "com.localshorts.app.gemini"
        minSdk = 26
        targetSdk = 34
        versionCode = 1
@@ -19,10 +19,19 @@ android {
        }
    }
 
+   signingConfigs {
+       getByName("debug") {
+           storeFile = file("debug.keystore")
+           storePassword = "android"
+           keyAlias = "androiddebugkey"
+           keyPassword = "android"
+       }
+   }
+
    buildTypes {
        debug {
            isMinifyEnabled = false
-           applicationIdSuffix = ""
+           signingConfig = signingConfigs.getByName("debug")
        }
        release {
            isMinifyEnabled = true
