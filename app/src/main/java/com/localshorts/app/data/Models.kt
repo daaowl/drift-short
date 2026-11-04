@@ -16,26 +16,51 @@ data class Folder(val uri: String, val name: String)
 
 enum class EndBehavior { LOOP, NEXT, STOP }
 
-enum class GalleryTab { LATEST, OLDEST, FAVOURITES }
+enum class SortOrder(val label: String) {
+    NEWEST("Newest"),
+    OLDEST("Oldest"),
+    NAME("Name"),
+    MOST_WATCHED("Most watched"),
+}
+
+enum class TransitionSpeed(val label: String) { SLOW("Slow"), NORMAL("Normal"), FAST("Fast") }
 
 data class Settings(
     val columns: Int = 2,
     val end: EndBehavior = EndBehavior.LOOP,
     val speed: Float = 1f,
+    val transition: TransitionSpeed = TransitionSpeed.NORMAL,
     val accent: Long = ACCENTS.first().second,
-    val tab: GalleryTab = GalleryTab.LATEST,
+    val favouritesOnly: Boolean = false,
+    val sort: SortOrder = SortOrder.NEWEST,
     val folders: List<Folder> = emptyList(),
     /** "" means all folders. */
     val activeFolder: String = "",
+    val brightnessGesture: Boolean = true,
+    val volumeGesture: Boolean = true,
+    val icon: String = APP_ICONS.first().id,
+    val lock: Boolean = false,
     val loaded: Boolean = false,
 )
 
 val ACCENTS: List<Pair<String, Long>> = listOf(
     "Red" to 0xFFE5484DL,
-    "Sage" to 0xFF9DB4A5L,
-    "Dusty blue" to 0xFF8EA4B8L,
-    "Sand" to 0xFFC2B49AL,
-    "Mauve" to 0xFFB39BA8L,
+    "Ember" to 0xFFF2683CL,
+    "Gold" to 0xFFE8B04BL,
+    "Sage" to 0xFF7FB89AL,
+    "Sky" to 0xFF5AA9E6L,
+    "Violet" to 0xFF9B7BF0L,
+)
+
+/** Launcher icon choices. Each one is an activity-alias in the manifest. */
+data class AppIcon(val id: String, val label: String, val alias: String, val drawableName: String)
+
+val APP_ICONS: List<AppIcon> = listOf(
+    AppIcon("hollow", "Hollow", "com.localshorts.app.IconHollow", "logo_hollow"),
+    AppIcon("stack", "Stack", "com.localshorts.app.IconStack", "logo_stack"),
+    AppIcon("orbit", "Orbit", "com.localshorts.app.IconOrbit", "logo_orbit"),
+    AppIcon("mono", "Mono", "com.localshorts.app.IconMono", "logo_mono"),
+    AppIcon("prism", "Prism", "com.localshorts.app.IconPrism", "logo_prism"),
 )
 
 val SPEEDS: List<Float> = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.25f)

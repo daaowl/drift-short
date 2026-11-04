@@ -6,8 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.localshorts.app.data.EndBehavior
 import com.localshorts.app.data.Folder
-import com.localshorts.app.data.GalleryTab
 import com.localshorts.app.data.Settings
+import com.localshorts.app.data.SortOrder
+import com.localshorts.app.data.ThumbMode
+import com.localshorts.app.data.TransitionSpeed
 import com.localshorts.app.data.VideoItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +25,7 @@ import java.util.Locale
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val hollow = app as HollowApp
     val thumbs = hollow.thumbs
+    val thumbStore = hollow.thumbStore
 
     val settings: StateFlow<Settings> =
         hollow.settings.flow.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
@@ -32,23 +35,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         hollow.userData.watchCounts.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     val scanning: StateFlow<Boolean> = hollow.library.scanning
     val unavailable: StateFlow<Set<String>> = hollow.library.unavailable
+    val thumbVersion: StateFlow<Int> = hollow.thumbStore.version
 
     val query = MutableStateFlow("")
 
-    /** The gallery list for the current tab, folder and search. Tabs re-sort; they never rescan. */
+    /** The gallery list for the current folder, filter, sort and search. Never rescans. */
     val gallery: StateFlow<List<VideoItem>> = combine(
-        hollow.library.videos, settings, favourites, query,
-    ) { videos, s, favs, q ->
+        hollow.library.videos, settings, favourites, watchCounts, query,
+    ) { videos, s, favs, watch, q ->
         val needle = q.trim().lowercase(Locale.ROOT)
-        val base = when {
+        var list = when {
             needle.isNotEmpty() -> videos.filter { it.name.lowercase(Locale.ROOT).contains(needle) }
             s.activeFolder.isEmpty() -> videos
             else -> videos.filter { it.folder == s.activeFolder }
         }
-        when (s.tab) {
-            GalleryTab.LATEST -> base.sortedByDescending { it.modified }
-            GalleryTab.OLDEST -> base.sortedBy { it.modified }
-            GalleryTab.FAVOURITES -> base.filter { it.id in favs }.sortedByDescending { it.modified }
+        if (s.favouritesOnly) list = list.filter { it.id in favs }
+        when (s.sort) {
+            SortOrder.NEWEST -> list.sortedByDescending { it.modified }
+            SortOrder.OLDEST -> list.sortedBy { it.modified }
+            SortOrder.NAME -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            SortOrder.MOST_WATCHED -> list.sortedWith(
+                compareByDescending<VideoItem> { watch[it.id] ?: 0 }.thenByDescending { it.modified },
+            )
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -56,6 +64,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             settings.filter { it.loaded }.map { it.folders }.distinctUntilChanged().collect {
                 hollow.library.refresh(it)
+            }
+        }
+        // Keep the real launcher icon in line with the saved choice (covers restores and reinstalls)
+        viewModelScope.launch {
+            settings.filter { it.loaded }.map { it.icon }.distinctUntilChanged().collect {
+                runCatching { AppIcons.apply(getApplication(), it) }
             }
         }
     }
@@ -73,11 +87,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setActiveFolder(uri: String) = viewModelScope.launch { hollow.settings.setActiveFolder(uri) }
-    fun setTab(t: GalleryTab) = viewModelScope.launch { hollow.settings.setTab(t) }
+    fun setView(favouritesOnly: Boolean, sort: SortOrder) =
+        viewModelScope.launch { hollow.settings.setView(favouritesOnly, sort) }
     fun setColumns(n: Int) = viewModelScope.launch { hollow.settings.setColumns(n) }
     fun setEnd(e: EndBehavior) = viewModelScope.launch { hollow.settings.setEnd(e) }
     fun setSpeed(s: Float) = viewModelScope.launch { hollow.settings.setSpeed(s) }
+    fun setTransition(t: TransitionSpeed) = viewModelScope.launch { hollow.settings.setTransition(t) }
     fun setAccent(c: Long) = viewModelScope.launch { hollow.settings.setAccent(c) }
+    fun setBrightnessGesture(on: Boolean) = viewModelScope.launch { hollow.settings.setBrightnessGesture(on) }
+    fun setVolumeGesture(on: Boolean) = viewModelScope.launch { hollow.settings.setVolumeGesture(on) }
+    fun setIcon(id: String) = viewModelScope.launch { hollow.settings.setIcon(id) }
+    fun setLock(on: Boolean) = viewModelScope.launch { hollow.settings.setLock(on) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
+
+    fun setThumbOverride(id: String, ms: Long) = thumbStore.setOverride(id, ms)
+    fun resetThumbOverride(id: String) = thumbStore.clearOverride(id)
+    fun applyGlobalThumb(mode: ThumbMode, seconds: Int, keep: Boolean) {
+        thumbStore.applyGlobal(mode, seconds, keep)
+        thumbs.clearCovers()
+    }
 }

@@ -7,64 +7,95 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.util.LruCache
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Thumbnails and durations, decoded off the main thread, cached in memory and on disk.
+ * Covers and start frames, decoded on a 2-thread background pool, cached in memory and on disk.
  *
- * Two kinds of image per video:
- *  - cover: the gallery thumbnail, taken 2 s after the first hard scene cut so the intro is skipped
- *  - start frame: the frame at 0:00, shown in the player until the video's first frame renders
+ * - cover: the grid thumbnail, taken at the video's thumbnail timestamp (override, fixed, or auto)
+ * - start frame: the frame at 0:00, shown in the player until real video frames render
+ *
+ * Requests nobody is waiting for any more (tile scrolled away) are cancelled before they decode.
  */
-class ThumbnailLoader(private val context: Context) {
-    private val mem = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 6).toInt()) {
+class ThumbnailLoader(private val context: Context, private val store: ThumbStore) {
+    private val mem = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 5).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(2))
-    private val inflight = HashMap<String, Deferred<Bitmap?>>()
-    private val meta = context.getSharedPreferences("video_meta", Context.MODE_PRIVATE)
-    private val dir = File(context.cacheDir, "thumbs").apply { mkdirs() }
 
-    fun cachedCover(v: VideoItem): Bitmap? = mem.get("c_" + v.id)
+    private class Request(val job: Deferred<Bitmap?>) {
+        var waiters = 0
+    }
+
+    private val inflight = HashMap<String, Request>()
+    private val dir = File(context.cacheDir, "thumbs2").apply { mkdirs() }
+
+    fun coverKey(v: VideoItem) = "c_${v.id}_${store.signature(v.id)}"
+    fun cachedCover(v: VideoItem): Bitmap? = mem.get(coverKey(v))
     fun cachedStart(v: VideoItem): Bitmap? = mem.get("s_" + v.id)
+    fun duration(v: VideoItem): Long = store.duration(v.id)
 
-    /** Duration in ms, or -1 if not known yet. Filled in when the cover is first made. */
-    fun duration(v: VideoItem): Long = meta.getLong("d_" + v.id, -1L)
+    suspend fun cover(v: VideoItem): Bitmap? {
+        val key = coverKey(v)
+        return load(key) { makeCover(v) }
+    }
 
-    suspend fun cover(v: VideoItem): Bitmap? = load("c_" + v.id) { makeCover(v) }
     suspend fun startFrame(v: VideoItem): Bitmap? = load("s_" + v.id) { makeStart(v) }
 
-    private suspend fun load(key: String, make: () -> Bitmap?): Bitmap? {
+    /** Drops cached covers after the global rule changes. Start frames stay. */
+    fun clearCovers() {
+        mem.snapshot().keys.filter { it.startsWith("c_") }.forEach { mem.remove(it) }
+        dir.listFiles()?.filter { it.name.startsWith("c_") }?.forEach { it.delete() }
+    }
+
+    private suspend fun load(key: String, make: suspend () -> Bitmap?): Bitmap? {
         mem.get(key)?.let { return it }
-        val job = synchronized(inflight) {
+        val req = synchronized(inflight) {
             inflight.getOrPut(key) {
-                scope.async {
+                lateinit var r: Request
+                r = Request(scope.async(start = CoroutineStart.LAZY) {
                     val b = try {
                         readDisk(key) ?: make()?.also { writeDisk(key, it) }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (t: Throwable) {
                         null
                     }
                     if (b != null) mem.put(key, b)
-                    synchronized(inflight) { inflight.remove(key) }
+                    synchronized(inflight) { if (inflight[key] === r) inflight.remove(key) }
                     b
+                })
+                r.job.start()
+                r
+            }.also { it.waiters++ }
+        }
+        try {
+            return req.job.await()
+        } finally {
+            synchronized(inflight) {
+                req.waiters--
+                if (req.waiters <= 0 && !req.job.isCompleted) {
+                    req.job.cancel()
+                    if (inflight[key] === req) inflight.remove(key)
                 }
             }
         }
-        return job.await()
     }
 
     private fun readDisk(key: String): Bitmap? {
         val f = File(dir, "$key.jpg")
-        if (!f.exists()) return null
-        return BitmapFactory.decodeFile(f.path)
+        return if (f.exists()) BitmapFactory.decodeFile(f.path) else null
     }
 
     private fun writeDisk(key: String, b: Bitmap) {
@@ -76,34 +107,49 @@ class ThumbnailLoader(private val context: Context) {
 
     private fun open(v: VideoItem) = MediaMetadataRetriever().apply { setDataSource(context, v.uri) }
 
-    private fun makeStart(v: VideoItem): Bitmap? {
+    private fun duration(v: VideoItem, r: MediaMetadataRetriever): Long {
+        val known = store.duration(v.id)
+        if (known >= 0) return known
+        val d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        store.setDuration(v.id, d)
+        return d
+    }
+
+    private suspend fun makeStart(v: VideoItem): Bitmap? {
         val r = open(v)
         try {
-            storeDuration(v, r)
-            return frame(r, 0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 960)
+            duration(v, r)
+            currentCoroutineContext().ensureActive()
+            return frame(r, 0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1080)
         } finally {
             r.release()
         }
     }
 
-    private fun makeCover(v: VideoItem): Bitmap? {
+    private suspend fun makeCover(v: VideoItem): Bitmap? {
         val r = open(v)
         try {
-            val dur = storeDuration(v, r)
-            val cut = detectCut(r, dur)
-            val at = if (cut >= 0) cut + 2000 else dur * 3 / 10
+            val dur = duration(v, r)
+            val o = store.override(v.id)
+            val at = when {
+                o >= 0 -> o
+                store.mode == ThumbMode.FIXED -> store.fixedSeconds * 1000L
+                else -> {
+                    var cut = store.cut(v.id)
+                    if (cut == -2L) {
+                        cut = detectCut(r, dur)
+                        store.setCut(v.id, cut)
+                    }
+                    if (cut >= 0) cut + 2000 else dur * 3 / 10
+                }
+            }
             val ms = at.coerceIn(0L, (dur - 200).coerceAtLeast(0L))
+            currentCoroutineContext().ensureActive()
             return frame(r, ms, MediaMetadataRetriever.OPTION_CLOSEST, 720)
                 ?: frame(r, ms, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 720)
         } finally {
             r.release()
         }
-    }
-
-    private fun storeDuration(v: VideoItem, r: MediaMetadataRetriever): Long {
-        val d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-        meta.edit().putLong("d_" + v.id, d).apply()
-        return d
     }
 
     private fun frame(r: MediaMetadataRetriever, ms: Long, option: Int, maxSide: Int): Bitmap? {
@@ -119,11 +165,12 @@ class ThumbnailLoader(private val context: Context) {
     }
 
     /** First hard scene cut in the first 40 s, in ms, or -1. */
-    private fun detectCut(r: MediaMetadataRetriever, dur: Long): Long {
+    private suspend fun detectCut(r: MediaMetadataRetriever, dur: Long): Long {
         var prev: IntArray? = null
         val end = minOf((dur - 500).coerceAtLeast(0L), 40_000L)
         var t = 0L
         while (t <= end) {
+            currentCoroutineContext().ensureActive()
             val b = frame(r, t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 96)
             if (b != null) {
                 val cur = luma(b)

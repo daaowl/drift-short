@@ -1,6 +1,8 @@
 package com.localshorts.app.player
 
 import android.content.Context
+import android.os.SystemClock
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -17,9 +19,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Owns every ExoPlayer in the feed. A fixed pool of three players covers the window
- * (previous, current, next); page i always uses player i % 3, so adjacent pages never share one.
- * Only the active page's player has audio and playWhenReady.
+ * Owns every ExoPlayer in the feed.
+ *
+ * A fixed pool of three players covers the window around the dominant page (previous, dominant,
+ * next). Page i always uses player i % 3, so neighbours never share a player, and adjacent pages
+ * are prepared and paused on their first frame, so a partial swipe shows real video, not black.
+ *
+ * Exactly one player ever has volume and playWhenReady: the dominant page's.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackCoordinator(
@@ -34,11 +40,12 @@ class PlaybackCoordinator(
             playWhenReady = false
         }
     }
+    private var released = false
 
     var active = -1
         private set
 
-    /** What the user wants: false after a tap-to-pause or when Stop end behavior kicks in. */
+    /** User intent: false after tap-to-pause, while editing a thumbnail, or after Stop at the end. */
     val playing = MutableStateFlow(true)
     val progress = MutableStateFlow(0f)
     val positionMs = MutableStateFlow(0L)
@@ -46,39 +53,43 @@ class PlaybackCoordinator(
     val failed = MutableStateFlow<Set<String>>(emptySet())
 
     var onEndedNext: (() -> Unit)? = null
-    private var counted = false
     private var backgrounded = false
+    private var holdPaused = false
+
+    // Watch counting: one count per viewing session, after 3 s of real playback
+    // (or 90% of a shorter clip). Pausing, seeking and loops don't add time or counts.
+    private var sessionPlayedMs = 0L
+    private var sessionCounted = false
+    private var lastTick = 0L
 
     var endBehavior: EndBehavior = EndBehavior.LOOP
         set(value) {
             field = value
-            activePlayer()?.repeatMode = if (value == EndBehavior.LOOP) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            activePlayer()?.repeatMode = repeatFor(value)
         }
 
     var speed: Float = 1f
         set(value) {
             field = value
-            players.forEach { it.playbackParameters = PlaybackParameters(value) }
+            players.forEach { p ->
+                try {
+                    p.playbackParameters = PlaybackParameters(value)
+                } catch (_: Exception) {
+                    // Some decoders reject unusual speeds; keep playing at the previous speed
+                }
+            }
         }
 
     init {
         players.forEach { p ->
             p.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
-                    if (p !== activePlayer() || state != Player.STATE_ENDED) return
+                    if (released || p !== activePlayer() || state != Player.STATE_ENDED) return
                     when (endBehavior) {
-                        EndBehavior.NEXT -> onEndedNext?.invoke()
-                        EndBehavior.STOP -> playing.value = false // the player keeps the last frame on screen
+                        EndBehavior.NEXT -> onEndedNext?.invoke() ?: run { playing.value = false }
+                        EndBehavior.STOP -> playing.value = false // the last frame stays on screen
                         EndBehavior.LOOP -> Unit
                     }
-                }
-
-                override fun onPositionDiscontinuity(
-                    oldPosition: Player.PositionInfo,
-                    newPosition: Player.PositionInfo,
-                    reason: Int,
-                ) {
-                    if (p === activePlayer() && reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) counted = false
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -87,66 +98,96 @@ class PlaybackCoordinator(
             })
         }
         scope.launch {
-            while (isActive) {
+            lastTick = SystemClock.elapsedRealtime()
+            while (isActive && !released) {
                 tick()
                 delay(100)
             }
         }
     }
 
+    private fun repeatFor(e: EndBehavior) = if (e == EndBehavior.LOOP) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+
     fun playerFor(page: Int): ExoPlayer = players[page % 3]
 
-    private fun activePlayer(): ExoPlayer? = if (active in videos.indices) playerFor(active) else null
+    fun activeVideo(): VideoItem? = videos.getOrNull(active)
 
-    /** Called whenever the dominant page changes, including mid-drag. */
+    private fun activePlayer(): ExoPlayer? =
+        if (!released && active in videos.indices) playerFor(active) else null
+
+    /** Makes [page] the only playing, audible page. Called mid-drag whenever dominance changes. */
     fun setActive(page: Int) {
-        if (page == active || page !in videos.indices) return
-        val old = active
+        if (released || page == active || page !in videos.indices) return
         active = page
-        // Load the window: previous, current, next
         for (i in page - 1..page + 1) {
             if (i !in videos.indices) continue
             val p = playerFor(i)
             val v = videos[i]
             if (p.currentMediaItem?.mediaId != v.id) {
                 p.setMediaItem(MediaItem.Builder().setUri(v.uri).setMediaId(v.id).build())
+                p.playWhenReady = false
                 p.prepare()
             }
         }
-        // Silence everything except the new active page
+        val current = playerFor(page)
         players.forEach { p ->
-            if (p !== playerFor(page)) {
+            if (p !== current) {
                 p.playWhenReady = false
                 p.volume = 0f
             }
         }
-        // The page we left restarts from 0:00 if the user comes back to it
-        if (old in videos.indices && old != page) {
-            val p = playerFor(old)
-            if (p !== playerFor(page) && p.currentMediaItem?.mediaId == videos[old].id) p.seekTo(0)
+        current.repeatMode = repeatFor(endBehavior)
+        try {
+            current.playbackParameters = PlaybackParameters(speed)
+        } catch (_: Exception) {
         }
-        val p = playerFor(page)
-        p.repeatMode = if (endBehavior == EndBehavior.LOOP) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-        p.playbackParameters = PlaybackParameters(speed)
-        if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
-        p.volume = 1f
-        p.playWhenReady = !backgrounded
+        if (current.playbackState == Player.STATE_ENDED) current.seekTo(0)
+        current.volume = 1f
         playing.value = true
-        counted = false
-        progress.value = 0f
+        holdPaused = false
+        current.playWhenReady = !backgrounded
+        sessionPlayedMs = 0L
+        sessionCounted = false
+        progress.value = if (current.duration > 0) current.currentPosition.toFloat() / current.duration else 0f
+    }
+
+    /** After a swipe settles: pages that are no longer playing start from 0:00 next time. */
+    fun onSettled(page: Int) {
+        if (released) return
+        for (i in page - 1..page + 1) {
+            if (i == page || i !in videos.indices) continue
+            val p = playerFor(i)
+            if (p.currentMediaItem?.mediaId == videos[i].id && p.currentPosition > 0) p.seekTo(0)
+        }
     }
 
     fun toggle() {
         val p = activePlayer() ?: return
         if (p.playbackState == Player.STATE_ENDED) {
             p.seekTo(0)
-            p.playWhenReady = true
             playing.value = true
+            p.playWhenReady = true
             return
         }
-        val next = !playing.value
-        playing.value = next
-        p.playWhenReady = next
+        if (playing.value) pause() else resume()
+    }
+
+    fun pause() {
+        playing.value = false
+        activePlayer()?.playWhenReady = false
+    }
+
+    fun resume() {
+        val p = activePlayer() ?: return
+        if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
+        playing.value = true
+        if (!backgrounded && !holdPaused) p.playWhenReady = true
+    }
+
+    /** Freezes playback without changing the user's play/pause intent (e.g. during close). */
+    fun hold() {
+        holdPaused = true
+        players.forEach { it.playWhenReady = false }
     }
 
     fun seek(fraction: Float, exact: Boolean) {
@@ -154,9 +195,19 @@ class PlaybackCoordinator(
         val d = p.duration
         if (d <= 0) return
         p.setSeekParameters(if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC)
-        p.seekTo((fraction.coerceIn(0f, 1f) * d).toLong())
-        progress.value = fraction
+        val ms = (fraction.coerceIn(0f, 1f) * d).toLong()
+        p.seekTo(ms)
+        progress.value = fraction.coerceIn(0f, 1f)
+        positionMs.value = ms
     }
+
+    fun seekToMs(ms: Long) {
+        val p = activePlayer() ?: return
+        p.setSeekParameters(SeekParameters.EXACT)
+        p.seekTo(ms.coerceAtLeast(0))
+    }
+
+    fun positionNow(): Long = activePlayer()?.currentPosition ?: 0L
 
     fun onBackground() {
         backgrounded = true
@@ -165,24 +216,33 @@ class PlaybackCoordinator(
 
     fun onForeground() {
         backgrounded = false
-        if (playing.value) activePlayer()?.playWhenReady = true
+        if (playing.value && !holdPaused) activePlayer()?.playWhenReady = true
     }
 
     private fun tick() {
+        val now = SystemClock.elapsedRealtime()
+        val dt = now - lastTick
+        lastTick = now
         val p = activePlayer() ?: return
         val d = p.duration
-        if (d <= 0) return
+        if (d == C.TIME_UNSET || d <= 0) return
         val pos = p.currentPosition
         durationMs.value = d
         positionMs.value = pos
         progress.value = (pos.toFloat() / d).coerceIn(0f, 1f)
-        if (!counted && p.isPlaying && pos >= minOf(3000L, d / 2)) {
-            counted = true
-            onWatched(videos[active].id)
+        if (p.isPlaying) {
+            sessionPlayedMs += dt.coerceIn(0L, 500L)
+            val need = minOf(3000L, (d * 0.9).toLong())
+            if (!sessionCounted && sessionPlayedMs >= need) {
+                sessionCounted = true
+                onWatched(videos[active].id)
+            }
         }
     }
 
     fun release() {
+        if (released) return
+        released = true
         players.forEach { it.release() }
     }
 }

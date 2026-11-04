@@ -11,8 +11,8 @@ android {
         applicationId = "com.localshorts.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
     }
 
     // Fixed debug key in the repo, so every CI build installs over the previous one.
@@ -43,6 +43,8 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.2")
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.compose.ui:ui")

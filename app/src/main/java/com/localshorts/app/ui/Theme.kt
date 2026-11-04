@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.localshorts.app.R
 
 object Hc {
     val Bg = Color(0xFF15171A)
@@ -36,3 +37,19 @@ fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }
+
+/** In-app logo for each launcher icon choice. */
+fun logoRes(iconId: String): Int = when (iconId) {
+    "stack" -> R.drawable.logo_stack
+    "orbit" -> R.drawable.logo_orbit
+    "mono" -> R.drawable.logo_mono
+    "prism" -> R.drawable.logo_prism
+    else -> R.drawable.logo_hollow
+}
+
+/** Text shadow for labels drawn straight over video. */
+val VideoTextShadow = androidx.compose.ui.graphics.Shadow(
+    color = Color(0x99000000),
+    offset = androidx.compose.ui.geometry.Offset(0f, 1.5f),
+    blurRadius = 6f,
+)

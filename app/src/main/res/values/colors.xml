@@ -1,4 +1,7 @@
 <resources>
     <color name="bg">#FF15171A</color>
-    <color name="icon_bg">#FF15171A</color>
+    <color name="ic_bg_hollow">#FF15171A</color>
+    <color name="ic_bg_stack">#FF15171A</color>
+    <color name="ic_bg_orbit">#FF15171A</color>
+    <color name="ic_bg_mono">#FF0E0F11</color>
 </resources>

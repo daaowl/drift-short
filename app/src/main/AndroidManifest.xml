@@ -1,23 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
     <application
         android:name=".HollowApp"
         android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_hollow"
+        android:roundIcon="@mipmap/ic_launcher_hollow"
         android:label="Hollow"
         android:supportsRtl="true"
         android:theme="@style/Theme.Hollow">
+
+        <!-- Launched through one of the icon aliases below. Screenshots are never blocked. -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- One launcher entry per icon choice; Settings enables exactly one. -->
+        <activity-alias
+            android:name=".IconHollow"
+            android:enabled="true"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:icon="@mipmap/ic_launcher_hollow"
+            android:roundIcon="@mipmap/ic_launcher_hollow"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconStack"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_stack"
+            android:roundIcon="@mipmap/ic_launcher_stack"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconOrbit"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_orbit"
+            android:roundIcon="@mipmap/ic_launcher_orbit"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconMono"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mono"
+            android:roundIcon="@mipmap/ic_launcher_mono"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconPrism"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_prism"
+            android:roundIcon="@mipmap/ic_launcher_prism"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
     </application>
 </manifest>
