@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-   <style name="Theme.Hollow" parent="android:Theme.Material.NoActionBar">
-       <item name="android:windowBackground">@color/hollow_obsidian</item>
-       <item name="android:statusBarColor">@android:color/transparent</item>
-       <item name="android:navigationBarColor">@android:color/transparent</item>
-   </style>
+    <style name="Theme.Vanta" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/vanta_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

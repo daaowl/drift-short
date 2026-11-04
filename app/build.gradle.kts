@@ -1,95 +1,93 @@
 plugins {
-   alias(libs.plugins.android.application)
-   alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
-   namespace = "com.localshorts.app"
-   compileSdk = 34
+    namespace = "com.vanta.player"
+    compileSdk = 35
 
-   defaultConfig {
-       applicationId = "com.localshorts.app.gemini"
-       minSdk = 26
-       targetSdk = 34
-       versionCode = 1
-       versionName = "1.0.0"
+    defaultConfig {
+        applicationId = "com.vanta.player"
+        minSdk = 28
+        targetSdk = 35
+        versionCode = 21
+        versionName = "1.20"
 
-       vectorDrawables {
-           useSupportLibrary = true
-       }
-   }
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+    }
 
-   signingConfigs {
-       getByName("debug") {
-           storeFile = file("debug.keystore")
-           storePassword = "android"
-           keyAlias = "androiddebugkey"
-           keyPassword = "android"
-       }
-   }
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
 
-   buildTypes {
-       debug {
-           isMinifyEnabled = false
-           signingConfig = signingConfigs.getByName("debug")
-       }
-       release {
-           isMinifyEnabled = true
-           isShrinkResources = true
-           proguardFiles(
-               getDefaultProguardFile("proguard-android-optimize.txt"),
-               "proguard-rules.pro"
-           )
-       }
-   }
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
 
-   compileOptions {
-       sourceCompatibility = JavaVersion.VERSION_17
-       targetCompatibility = JavaVersion.VERSION_17
-   }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 
-   kotlinOptions {
-       jvmTarget = "17"
-   }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 
-   buildFeatures {
-       compose = true
-   }
+    buildFeatures {
+        compose = true
+    }
 
-   composeOptions {
-       kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-   }
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
 
-   packaging {
-       resources {
-           excludes += "/META-INF/{AL2.0,LGPL2.1}"
-       }
-   }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
-   implementation(libs.androidx.core.ktx)
-   implementation(libs.androidx.lifecycle.runtime.ktx)
-   implementation(libs.androidx.lifecycle.runtime.compose)
-   implementation(libs.androidx.lifecycle.viewmodel.compose)
-   implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
 
-   implementation(platform(libs.androidx.compose.bom))
-   implementation(libs.androidx.ui)
-   implementation(libs.androidx.ui.graphics)
-   implementation(libs.androidx.ui.tooling.preview)
-   implementation(libs.androidx.material3)
-   implementation(libs.androidx.material.icons.extended)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
 
-   implementation(libs.androidx.datastore.preferences)
-   implementation(libs.androidx.documentfile)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.documentfile)
 
-   implementation(libs.androidx.media3.exoplayer)
-   implementation(libs.androidx.media3.ui)
-   implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.common)
 
-   implementation(libs.coil.compose)
-   implementation(libs.coil.video)
-
-   implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.android)
 }

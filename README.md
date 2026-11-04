@@ -1,6 +1,8 @@
-# Hollow
-1. Push all files to a GitHub repository and open the **Actions** tab to run the `Android Debug APK CI` workflow, or build locally with JDK 17 and Gradle 8.7 using `gradle assembleDebug`.
-2. Download the `hollow-debug-apk` artifact (`app-debug.apk`) from the completed GitHub Actions run or from `app/build/outputs/apk/debug/app-debug.apk`.
-3. Enable "Install unknown apps" on your Android device (Android 8.0 / API 26+) or run `adb install -r app-debug.apk`.
-4. Launch **Hollow** and tap **Add Video Folder** to grant Storage Access Framework (SAF) read access to any local directory, including hidden `.nomedia` folders.
-5. Tap any video thumbnail to expand smoothly into the vertical Shorts player.
+# Vanta (v1.20 — Version Code 21)
+
+Complete native Android source implementing the `Vanta v1.19` handoff specification (`package com.vanta.player`, `minSdk = 28`, `targetSdk = 35`, `versionCode = 21`, `versionName = "1.20"`).
+
+## Build & Install Instructions
+1. **GitHub Actions (Automated)**: Push the contents of this archive to a GitHub repository and run the `Build Vanta Signed APK` workflow in the **Actions** tab, then download `vanta-v1.20-debug-apk` (`app-debug.apk`).
+2. **Local CLI Build**: With JDK 17 and Android SDK installed, run `gradle assembleDebug` (using Gradle 8.7) to produce `app/build/outputs/apk/debug/app-debug.apk`.
+3. **Signing Key Note**: Because no existing v1.19 release keystore binary was attached, this build signs with the standard Android debug keystore. Installing over a differently-signed existing `com.vanta.player` build requires signing with your original release keystore or uninstalling the previous signature first.

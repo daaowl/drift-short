@@ -1,0 +1,155 @@
+VANTA — COMPLETE ANDROID APP HANDOFF PROMPT
+Baseline: v1.19 (application version code 20), verified against its source.
+
+Build or continue Vanta, a native Android app for browsing local videos and watching them as vertical shorts. Deliver a signed installable APK and full source. Handle the build yourself; I do not want manual GitHub, Android Studio, or build-pipeline setup. Make reasonable implementation decisions without repeatedly asking for clarification.
+
+Preserve all features below. If the existing source/APK is supplied, use v1.19 as the baseline and preserve its accepted layout, highlights, proportions, icons, and animations. Do not substitute an older snapshot or redesign unrelated elements. Use native playback, not a WebView mockup.
+
+1. LOCAL VIDEO LIBRARY AND FOLDERS
+- Fully offline: no account, ads, analytics, backend, or network dependency.
+- Android folder picker with persistent read permission. Browse folders containing .nomedia directly; videos need not appear in the system gallery.
+- Read files in place without importing, duplicating, moving, or changing them.
+- Include videos in nested subfolders; the baseline scans up to 12 levels deep.
+- Recognise video MIME types plus MP4, MKV, WebM, MOV, M4V, and 3GP extensions. Playback remains subject to device codec support.
+- Remember multiple granted folders and the last selected folder across restarts.
+- Folder switcher accessible from the main header and Settings. Show folder names/paths, mark the active folder, and offer Add another folder.
+- Switching folders stops playback, clears search, returns to the All collection, and scans the selected folder.
+- Scan the saved folder on launch; provide manual refresh. Background scan results must not interrupt an open player.
+- Clear messages for first use, empty folders, empty favourites, no search matches, permission failures, and unplayable videos.
+
+2. MAIN SCREEN, SEARCH, FILTERS, AND SORTING
+- Premium dark interface: background #0F0F0F, charcoal surfaces, off-white text, muted secondary text, default red accent #EF454F.
+- Compact, integrated header with original Vanta mark/name, Search, Folder, and Settings icons. No bulky logo island or total-video-count row.
+- Latest, Oldest, and Favourites tabs with balanced spacing. Latest selects newest order; Oldest selects oldest order; Favourites filters saved favourites and can use the available sort modes.
+- Preserve the baseline's subtle accent-tinted selected-tab fill and border, comfortable horizontal padding, and compact height. Do not replace it with a large white pill or move the tabs.
+- Sort menu: Newest first, Oldest first, Name A–Z, Name Z–A, Most viewed.
+- Default sort is newest first; persist the chosen sort.
+- Dates use file last-modified metadata. Put unknown dates last in date sorts. Most viewed sorts descending by local watch count, breaking ties by newest first. Use deterministic further tie-breaking.
+- Search within the current collection by case-insensitive filename substring, ignoring surrounding query whitespace. Update matches as the user types.
+- Search includes clear-text and close/back actions; closing clears the query. Keyboard Search dismisses the keyboard.
+- Entire header, including branding and tabs, collapses when scrolling upward through the feed and returns when scrolling back or reaching the top. Keep it open while searching.
+- Restore the feed's scroll position and collapsed-header state after playback or settings. Track browsing positions separately by folder/filter/search/sort during the session.
+- When column count changes, preserve the visible video as the scroll anchor instead of jumping to the top.
+- Device Back returns from player/settings to the feed, closes search when applicable, and otherwise follows normal app navigation.
+
+3. THUMBNAIL GRID AND PERFORMANCE
+- Seamless portrait grid inspired by YouTube Shorts' arrangement, with 9:16 tiles, centre-cropped images, and narrow approximately 2dp gutters.
+- Selectable 1, 2, 3, or 4 columns in Settings; default 2.
+- No timestamp or duration printed on grid thumbnails.
+- Small local watch-count label near the bottom, with a subtle readability gradient. Support singular/plural and compact K/M labels.
+- Tap a thumbnail to play that video. Long-press for Add/remove favourite and Change thumbnail.
+- Fast asynchronous thumbnail extraction, correctly sized images, recycled cells, memory cache, and persistent disk cache.
+- Deduplicate requests, prioritise currently needed thumbnails, and prevent late results from populating the wrong recycled tile.
+- Cache identity must include video identity, modification time, and chosen frame timestamp. Returning to previously visited tiles should reuse cached images.
+- Bound cache growth; baseline uses 48 MiB memory and trims disk cache from over 128 MiB toward 100 MiB.
+- No video decoding or thumbnail extraction on the UI thread.
+
+4. CUSTOM THUMBNAILS — REQUIRED
+- Let the user choose custom thumbnails by selecting a frame FROM EACH VIDEO.
+- Global Default frame setting accepts a timestamp in seconds, including decimals; default 1 second. Validate input and clamp extraction to the actual video's length.
+- Individual video overrides take priority over the global default and persist across restarts.
+- Open the individual editor from either a grid long-press or the paused player's menu.
+- Individual editor contains a large frame preview, timestamp label, and a seek slider covering the video's duration.
+- Moving the slider updates the selected time; releasing it asynchronously renders the selected frame. Ignore stale preview results.
+- Save stores the chosen timestamp for that video. Cancel leaves it unchanged. Use default removes its override.
+- Settings includes Apply to all videos and Keep custom frames, enabled by default.
+- With Keep custom frames enabled, global changes preserve individual overrides. With it disabled, applying to all asks for confirmation before clearing overrides.
+- Refresh affected thumbnails after changes. Thumbnail selection must never change the video's playback starting point.
+- Scope clarification: v1.19 supports custom VIDEO-FRAME thumbnails, not importing a separate photo as a thumbnail.
+
+5. PLAYER AND CONTROLS
+- Immersive full-screen player, correct aspect ratio, no stretching; fit the whole video with black space where needed.
+- Tap the screen to pause/resume. Show a compact central play indicator when paused. Play after a stopped ending restarts from the beginning.
+- Small top-left Back button.
+- Small top-right three-dot menu available only when paused.
+- Menu includes Playback speed, Add/remove favourite, Change thumbnail, and Back to library.
+- Transparent compact bottom controls: saved date from file metadata, title without recognised video extension, thin seek bar with a small thumb, and elapsed/total time.
+- Small text, single-line ellipsised title, subtle text shadows, and no solid bottom panel.
+- Seek progress/thumb use the selected accent; unplayed track uses a subdued version of it.
+- Seek dragging updates the time display, seeks on release, and prevents controls from hiding while dragging.
+- Controls fade away after 1.25 seconds of inactivity, including Back and other visible overlays; interaction reveals them again. Pause-only indicators remain available through interaction.
+- Respect system insets so controls do not overlap status/navigation areas.
+- Keep the screen awake during playback; restore normal screen behaviour and prior app-window brightness on exit.
+- Allow normal Android screenshots and screen recording. This is permission to use system capture, not a built-in screenshot-export feature.
+- Pause when backgrounded and release obsolete players/callbacks when leaving playback.
+
+6. OPENING AND BETWEEN-VIDEO TRANSITIONS
+- Smooth expansion from the tapped grid tile into the full-screen player; baseline opening duration approximately 280ms.
+- Retain visual continuity while decoding. Remove the opening artwork only after animation completion and an actual frame presentation at full-screen size, not merely player preparation.
+- A custom grid thumbnail may show a later point than playback start; playback still begins at the start.
+- Vertical swipe up advances; down returns to the previous video in the CURRENT filtered/sorted collection.
+- Wrap around at collection ends. Handle a one-video collection without an invalid adjacent page.
+- Current and adjacent pages follow the finger continuously, so a partial swipe shows both videos.
+- During a held swipe, the video occupying MORE THAN HALF the screen plays UNMUTED. Pause the other video. Reversing the swipe transfers playback/audio back.
+- Only one video produces audio. Off-screen preparation is silent.
+- Show actual decoded video frames in adjacent previews. Do not flash a grid thumbnail while quickly changing shorts.
+- Preserve v1.19's fix: adjacent player pages do not request thumbnail artwork; late thumbnail callbacks cannot overwrite captured player frames or released pages.
+- Prepare adjacent video efficiently; do not create players for the whole folder.
+- Complete a committed swipe smoothly; cancelled gestures return smoothly to the original video with playback/audio restored.
+- Avoid crossfading between shorts; use the established vertical slide.
+- Settings → Playback → Short transition offers Slow · cinematic, Normal · balanced, Fast · snappy.
+- Normal is default. Baseline settling duration is about 230–370ms depending on remaining travel; Slow multiplies it by 1.35, Fast by 0.72.
+- Transition speed changes the post-release settling animation, not playback speed or direct finger tracking.
+- Respect disabled system animations. Handle rapid gestures and interrupted transitions without stale frames, crashes, or overlapping audio.
+
+7. GESTURES
+- Left quarter: vertical brightness adjustment. Right quarter: vertical media-volume adjustment. Middle half: change video.
+- Swipe upward to increase brightness/volume and downward to decrease.
+- Independent Brightness gesture and Volume gesture switches, both enabled by default.
+- Disabling a side gesture makes that region available for changing videos.
+- Brightness applies only to the app window, not the system-wide setting.
+- Show a small temporary percentage indicator during adjustments; dismiss it automatically.
+- Include the gesture-zone explanation in Settings.
+- Distinguish taps, minor finger movement, deliberate drags, and velocity-based flicks.
+
+8. PLAYBACK PREFERENCES
+- Playback speeds: 0.25×, 0.5×, 0.75×, 1×, 1.25×, 1.5×, 1.75×, 2×, 2.25×. Default 1×.
+- Select speed through Settings or the paused player's menu; persist the choice and apply across videos.
+- Gracefully report unsupported speed changes.
+- End-of-video choices: Loop this video (default), Play next video, Stop at the end.
+- Automatic next follows the active collection order, including wraparound.
+
+9. FAVOURITES AND LOCAL WATCH COUNTS
+- Persistent add/remove favourites through the grid menu and player menu; dedicated Favourites filter.
+- Persist counts per stable video identity, independent of sort position.
+- Count a view after 3 seconds of actual playback, or 90% of a shorter video's playback duration, accounting for selected playback speed.
+- At most one count per viewing session; paused time, seeking jumps, and automatic loops must not add artificial views.
+- Revisiting a video starts another eligible viewing session.
+- Counts remain local; do not fabricate historical watches before the app was used.
+- Show counts in the grid, use them for Most viewed sorting, and include a Settings explanation.
+
+10. APPEARANCE AND SIX LAUNCHER ICONS
+- Accent picker with a continuous rainbow hue slider plus saturation and brightness sliders.
+- Live colour preview and hexadecimal colour readout; Save and Cancel.
+- Presets: red #EF454F, green #77BA8A, blue #69A5EE, gold #D6AE6C, purple #BE87CB, silver #BCBCBC.
+- Persist the accent and apply it consistently to branding, selected states, headings, and seeking.
+- App-icon gallery with previews, selected-state indicator, and SIX choices:
+  1. Vanta — pearl & ember.
+  2. Frames — slate & ice.
+  3. Pulse — ink & violet.
+  4. Orbit — charcoal & champagne.
+  5. Ribbon — forest & sage.
+  6. Mono — graphite & silver.
+- These are distinct original geometric designs/finishes, not copies of other platforms' logos.
+- Selecting an icon changes the ACTUAL Android launcher icon, persists the choice, and avoids duplicate enabled launcher entries. Allow for launcher refresh delay.
+- Header branding and launcher-icon selection are separate; do not assume changing the launcher icon also replaces the header mark.
+
+11. SETTINGS, PRIVACY, AND DEFAULTS
+- Clearly separated settings groups: Appearance, Thumbnails, Playback, Player gestures, Library, Privacy.
+- Include every control described above, folder management, and watch-count help.
+- Optional Require phone unlock, off by default, using Android's existing device-credential confirmation.
+- Require an existing secure phone lock before enabling. Re-lock after leaving the app; successful authentication returns to the library; cancelled authentication exits.
+- Continue to allow screenshots. Disable automatic application backup as in the baseline.
+- Persist folders/permissions, sort, grid columns, accent, icon, global/individual thumbnail timestamps, keep-overrides preference, favourites, counts, playback speed, transition speed, end behaviour, gesture toggles, and lock preference.
+- Do not mistake session-only search/filter/scroll state for a promise of full restoration after process death.
+- Label icon buttons and seeking controls for accessibility.
+
+12. DELIVERY AND VERIFICATION
+- Baseline is Android 9/API 28 minimum, target API 35, package com.vanta.player, version name 1.19 and version code 20.
+- For an UPDATE, preserve package ID, existing signing key, preference identities, folder access, favourites, counts, and thumbnail choices. Use a version code greater than 20. Renaming an APK does not change its internal version.
+- Do not silently replace the signing key. If starting a separate app without the original key/source, explicitly distinguish it from an install-over update.
+- Deliver an installable signed APK, complete source, and brief reproducible build instructions.
+- Check all features above, especially individual/global custom thumbnails, all six actual launcher icons, folder switching, feed restoration, all sort modes, partial-swipe audio switching, fast-swiping thumbnail flashes, transitions, seeking, end modes, and background behaviour.
+- Preserve accepted visuals when making fixes. Show a focused change summary and distinguish build/unit checks from real-device testing.
+- v1.19 is the source baseline, not proof that every timing/decoder edge case is bug-free. Meet the described behaviour and report unverified device behaviour honestly.
+- Do not add unrelated features such as cloud sync, downloads, a social feed, external-image thumbnail import, a separate screenshot button, or a “Car Drop Only” mode and claim they existed in v1.19.

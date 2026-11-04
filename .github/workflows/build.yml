@@ -1,8 +1,8 @@
-name: Build Gemini-rewrite APK
+name: Build Vanta APK
 
 on:
   push:
-    branches: [gemini-rewrite]
+    branches: [vanta]
   workflow_dispatch:
 
 permissions:
@@ -51,16 +51,16 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Hollow-gemini-debug-apk
+          name: Vanta-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Publish as gemini-latest release
+      - name: Publish as vanta-latest release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Hollow-gemini.apk
-          gh release delete gemini-latest --yes --cleanup-tag || true
-          gh release create gemini-latest Hollow-gemini.apk --target "$GITHUB_SHA" --prerelease \
-            --title "Hollow (Gemini rewrite) build" --notes "Built from ${GITHUB_SHA::7}. Package com.localshorts.app.gemini (Hollow G), installs alongside the main Hollow build."
+          cp app/build/outputs/apk/debug/app-debug.apk Vanta.apk
+          gh release delete vanta-latest --yes --cleanup-tag || true
+          gh release create vanta-latest Vanta.apk --target "$GITHUB_SHA" --prerelease \
+            --title "Vanta build" --notes "Built from ${GITHUB_SHA::7}. Package com.vanta.player. Installs alongside Hollow and Hollow G."
