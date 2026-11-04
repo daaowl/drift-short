@@ -111,7 +111,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val enrichedVideos = inputs.rawVideos.map { video ->
                 video.copy(
                     isFavourite = inputs.userStats.favouriteIds.contains(video.stableId),
-                    watchCount = inputs.userStats.watchCounts[video.stableId] ?: 0
+                    watchCount = inputs.userStats.watchCounts[video.stableId] ?: 0,
+                    thumbnailTimeMs = inputs.userStats.thumbnailTimes[video.stableId]
                 )
             }
 
@@ -362,6 +363,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleFavourite(videoId: String) {
         viewModelScope.launch { preferencesStore.toggleFavourite(videoId) }
+    }
+
+    /** Uses the frame currently on screen as this video's gallery thumbnail. */
+    fun setThumbnailFromCurrentFrame(videoId: String) {
+        val positionMs = playbackCoordinator.progress.value.positionMs
+        viewModelScope.launch { preferencesStore.setThumbnailTime(videoId, positionMs) }
+    }
+
+    fun resetThumbnail(videoId: String) {
+        viewModelScope.launch { preferencesStore.setThumbnailTime(videoId, null) }
     }
 
     fun setPlaybackSpeed(speed: Float) {

@@ -31,7 +31,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 data class VideoUserStats(
    val favouriteIds: Set<String> = emptySet(),
-   val watchCounts: Map<String, Int> = emptyMap()
+   val watchCounts: Map<String, Int> = emptyMap(),
+   val thumbnailTimes: Map<String, Long> = emptyMap()
 )
 
 class PreferencesStore(private val context: Context) {
@@ -56,6 +57,7 @@ class PreferencesStore(private val context: Context) {
        val LAST_SCROLL_OFFSET = intPreferencesKey("last_scroll_offset")
        val FAVOURITE_IDS = stringSetPreferencesKey("favourite_video_ids")
        val WATCH_COUNTS_JSON = stringPreferencesKey("watch_counts_json")
+       val THUMBNAIL_TIMES_JSON = stringPreferencesKey("thumbnail_times_json")
    }
 
    val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -113,7 +115,8 @@ class PreferencesStore(private val context: Context) {
        .map { prefs ->
            VideoUserStats(
                favouriteIds = prefs[Keys.FAVOURITE_IDS] ?: emptySet(),
-               watchCounts = parseWatchCountsJson(prefs[Keys.WATCH_COUNTS_JSON])
+               watchCounts = parseWatchCountsJson(prefs[Keys.WATCH_COUNTS_JSON]),
+               thumbnailTimes = parseThumbnailTimesJson(prefs[Keys.THUMBNAIL_TIMES_JSON])
            )
        }
 
@@ -251,6 +254,31 @@ class PreferencesStore(private val context: Context) {
            map[stableVideoId] = nextCount
            prefs[Keys.WATCH_COUNTS_JSON] = encodeWatchCountsJson(map)
        }
+   }
+
+   /** Saves a custom thumbnail position for a video; null restores the automatic frame. */
+   suspend fun setThumbnailTime(stableVideoId: String, timeMs: Long?) {
+       context.dataStore.edit { prefs ->
+           val map = parseThumbnailTimesJson(prefs[Keys.THUMBNAIL_TIMES_JSON]).toMutableMap()
+           if (timeMs == null) map.remove(stableVideoId) else map[stableVideoId] = timeMs.coerceAtLeast(0L)
+           val obj = JSONObject()
+           map.forEach { (k, v) -> obj.put(k, v) }
+           prefs[Keys.THUMBNAIL_TIMES_JSON] = obj.toString()
+       }
+   }
+
+   private fun parseThumbnailTimesJson(json: String?): Map<String, Long> {
+       if (json.isNullOrBlank()) return emptyMap()
+       return runCatching {
+           val obj = JSONObject(json)
+           buildMap {
+               val keys = obj.keys()
+               while (keys.hasNext()) {
+                   val k = keys.next()
+                   put(k, obj.optLong(k, 0L))
+               }
+           }
+       }.getOrDefault(emptyMap())
    }
 
    private fun parseFoldersJson(json: String?): List<FolderEntry> {

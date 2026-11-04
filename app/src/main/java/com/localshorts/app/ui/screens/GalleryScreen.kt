@@ -511,11 +511,11 @@ private fun VideoThumbnailCard(
    var latestBounds by remember { mutableStateOf<Rect?>(null) }
 
    // Synchronous memory lookup prevents any placeholder flash on scroll or tab switch
-   var bitmap by remember(video.stableId) {
-       mutableStateOf<Bitmap?>(thumbnailCache.getMemoryCached(video.stableId))
+   var bitmap by remember(video.thumbnailKey) {
+       mutableStateOf<Bitmap?>(thumbnailCache.getMemoryCached(video))
    }
 
-   LaunchedEffect(video.stableId) {
+   LaunchedEffect(video.thumbnailKey) {
        if (bitmap == null) {
            bitmap = thumbnailCache.getOrDecodeThumbnail(video)
        }

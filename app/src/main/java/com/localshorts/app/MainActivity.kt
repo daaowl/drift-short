@@ -139,7 +139,9 @@ class MainActivity : ComponentActivity() {
                                 onSelectSpeed = { viewModel.setPlaybackSpeed(it) },
                                 onSelectEndBehavior = { viewModel.setEndBehavior(it) },
                                 onToggleVideoInfo = { viewModel.toggleVideoInfoOverlay() },
-                                onOpenSettings = { viewModel.openSettings() }
+                                onOpenSettings = { viewModel.openSettings() },
+                                onSetThumbnail = { viewModel.setThumbnailFromCurrentFrame(it) },
+                                onResetThumbnail = { viewModel.resetThumbnail(it) }
                             )
                         }
                     }

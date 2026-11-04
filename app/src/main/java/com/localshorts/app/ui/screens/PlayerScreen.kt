@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -59,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +97,8 @@ fun PlayerScreen(
     onSelectEndBehavior: (EndBehavior) -> Unit,
     onToggleVideoInfo: () -> Unit,
     onOpenSettings: () -> Unit,
+    onSetThumbnail: (String) -> Unit,
+    onResetThumbnail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler(enabled = playbackState.isPlayerOpen) {
@@ -107,6 +112,14 @@ fun PlayerScreen(
     var lastInteractionTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var isSpeedMenuExpanded by remember { mutableStateOf(false) }
     var isScrubbing by remember { mutableStateOf(false) }
+    var thumbnailToast by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(thumbnailToast) {
+        if (thumbnailToast != null) {
+            delay(1_600L)
+            thumbnailToast = null
+        }
+    }
 
     // Auto-hide the seek bar and chrome after 2.8 s of idle playback.
     LaunchedEffect(
@@ -175,6 +188,30 @@ fun PlayerScreen(
                     playbackState = playbackState,
                     playbackCoordinator = playbackCoordinator,
                     thumbnailCache = thumbnailCache
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = thumbnailToast != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 64.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xCC12131A))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = thumbnailToast ?: "",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -278,6 +315,45 @@ fun PlayerScreen(
                     onToggleFavourite(currentVideo.stableId)
                 }
             )
+
+            // Tap: use the frame on screen as the gallery thumbnail. Long-press: back to automatic.
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .border(
+                        width = 1.dp,
+                        color = if (currentVideo.thumbnailTimeMs != null) {
+                            hollowColors.accentPrimary.copy(alpha = 0.7f)
+                        } else {
+                            Color.White.copy(alpha = 0.14f)
+                        },
+                        shape = CircleShape
+                    )
+                    .pointerInput(currentVideo.stableId) {
+                        detectTapGestures(
+                            onTap = {
+                                lastInteractionTimestamp = System.currentTimeMillis()
+                                onSetThumbnail(currentVideo.stableId)
+                                thumbnailToast = "Thumbnail set"
+                            },
+                            onLongPress = {
+                                lastInteractionTimestamp = System.currentTimeMillis()
+                                onResetThumbnail(currentVideo.stableId)
+                                thumbnailToast = "Thumbnail reset to automatic"
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Image,
+                    contentDescription = "Set current frame as thumbnail",
+                    tint = if (currentVideo.thumbnailTimeMs != null) hollowColors.accentPrimary else Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
             Box(
                 modifier = Modifier
@@ -508,11 +584,11 @@ private fun VideoSlotViewport(
     val isFirstFrameRenderedForVideo = slotSnapshot?.boundVideoId == video.stableId &&
         slotSnapshot.isFirstFrameRendered
 
-    var cachedBitmap by remember(video.stableId) {
-        mutableStateOf<Bitmap?>(thumbnailCache.getMemoryCached(video.stableId))
+    var cachedBitmap by remember(video.thumbnailKey) {
+        mutableStateOf<Bitmap?>(thumbnailCache.getMemoryCached(video))
     }
 
-    LaunchedEffect(video.stableId) {
+    LaunchedEffect(video.thumbnailKey) {
         if (cachedBitmap == null) {
             cachedBitmap = thumbnailCache.getOrDecodeThumbnail(video)
         }

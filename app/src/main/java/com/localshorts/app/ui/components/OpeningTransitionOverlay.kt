@@ -66,13 +66,13 @@ fun OpeningTransitionOverlay(
     val latestDismissed by rememberUpdatedState(onCoverDismissed)
     val latestClosingFinished by rememberUpdatedState(onClosingFinished)
 
-    var bitmap by remember(targetVideo.stableId, transitionState.frameBitmap) {
+    var bitmap by remember(targetVideo.thumbnailKey, transitionState.frameBitmap) {
         mutableStateOf<Bitmap?>(
-            transitionState.frameBitmap ?: thumbnailCache.getMemoryCached(targetVideo.stableId)
+            transitionState.frameBitmap ?: thumbnailCache.getMemoryCached(targetVideo)
         )
     }
 
-    LaunchedEffect(targetVideo.stableId, transitionState.frameBitmap) {
+    LaunchedEffect(targetVideo.thumbnailKey, transitionState.frameBitmap) {
         if (bitmap == null) {
             bitmap = thumbnailCache.getOrDecodeThumbnail(targetVideo)
         }

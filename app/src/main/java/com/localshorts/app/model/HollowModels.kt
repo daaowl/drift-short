@@ -83,8 +83,13 @@ data class VideoItem(
    val sizeBytes: Long,
    val lastModifiedMs: Long,
    val isFavourite: Boolean = false,
-   val watchCount: Int = 0
+   val watchCount: Int = 0,
+   /** User-chosen thumbnail frame position, null = automatic. */
+   val thumbnailTimeMs: Long? = null
 ) {
+   /** Cache key that changes whenever the chosen thumbnail frame changes. */
+   val thumbnailKey: String get() = "${stableId}@${thumbnailTimeMs ?: -1L}"
+
    val uri: Uri get() = Uri.parse(uriString)
 
    val aspectRatio: Float

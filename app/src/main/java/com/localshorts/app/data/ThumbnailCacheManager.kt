@@ -42,35 +42,35 @@ class ThumbnailCacheManager(private val context: Context) {
 
    private val keyLocks = ConcurrentHashMap<String, Mutex>()
 
-   fun getMemoryCached(stableId: String): Bitmap? {
-       return memoryCache.get(stableId)
+   fun getMemoryCached(video: VideoItem): Bitmap? {
+       return memoryCache.get(video.thumbnailKey)
    }
 
    suspend fun getOrDecodeThumbnail(
        video: VideoItem,
        maxDimensionPx: Int = 720
    ): Bitmap? {
-       memoryCache.get(video.stableId)?.let { return it }
+       memoryCache.get(video.thumbnailKey)?.let { return it }
 
-       val mutex = keyLocks.getOrPut(video.stableId) { Mutex() }
+       val mutex = keyLocks.getOrPut(video.thumbnailKey) { Mutex() }
        return mutex.withLock {
-           memoryCache.get(video.stableId)?.let { return@withLock it }
+           memoryCache.get(video.thumbnailKey)?.let { return@withLock it }
 
            withContext(decodeDispatcher) {
-               val diskFile = getDiskFile(video.stableId)
+               val diskFile = getDiskFile(video.thumbnailKey)
                if (diskFile.exists() && diskFile.length() > 0L) {
                    val decoded = runCatching {
                        BitmapFactory.decodeFile(diskFile.absolutePath)
                    }.getOrNull()
                    if (decoded != null) {
-                       memoryCache.put(video.stableId, decoded)
+                       memoryCache.put(video.thumbnailKey, decoded)
                        return@withContext decoded
                    }
                }
 
                val extracted = extractVideoFrame(video, maxDimensionPx)
                if (extracted != null) {
-                   memoryCache.put(video.stableId, extracted)
+                   memoryCache.put(video.thumbnailKey, extracted)
                    runCatching {
                        FileOutputStream(diskFile).use { out ->
                            extracted.compress(Bitmap.CompressFormat.JPEG, 86, out)
@@ -89,7 +89,15 @@ class ThumbnailCacheManager(private val context: Context) {
        val retriever = MediaMetadataRetriever()
        return try {
            retriever.setDataSource(context, video.uri)
-           val frameTimeUs = if (video.durationMs > 1200L) 200_000L else 0L
+           val customTimeMs = video.thumbnailTimeMs
+           val frameTimeUs = customTimeMs?.let { it * 1000L }
+               ?: if (video.durationMs > 1200L) 200_000L else 0L
+           // A user-picked frame must be the exact frame, not the nearest keyframe.
+           val seekOption = if (customTimeMs != null) {
+               MediaMetadataRetriever.OPTION_CLOSEST
+           } else {
+               MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+           }
            // Keep the real aspect ratio: the player cover and transition overlay rely on it.
            val srcW = video.width.coerceAtLeast(1)
            val srcH = video.height.coerceAtLeast(1)
@@ -99,12 +107,12 @@ class ThumbnailCacheManager(private val context: Context) {
            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                retriever.getScaledFrameAtTime(
                    frameTimeUs,
-                   MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                   seekOption,
                    targetWidthPx,
                    targetHeightPx
-               ) ?: retriever.getFrameAtTime(frameTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+               ) ?: retriever.getFrameAtTime(frameTimeUs, seekOption)
            } else {
-               retriever.getFrameAtTime(frameTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+               retriever.getFrameAtTime(frameTimeUs, seekOption)
            }
            bitmap
        } catch (_: Exception) {
