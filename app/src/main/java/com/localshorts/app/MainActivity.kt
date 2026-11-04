@@ -1,98 +1,185 @@
 package com.localshorts.app
 
-import android.graphics.Color
 import android.os.Bundle
-import android.os.SystemClock
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
-import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
-import androidx.biometric.BiometricPrompt
-import androidx.compose.runtime.mutableStateOf
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.localshorts.app.ui.HollowRoot
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.localshorts.app.model.TransitionPhase
+import com.localshorts.app.ui.components.OpeningTransitionOverlay
+import com.localshorts.app.ui.screens.GalleryScreen
+import com.localshorts.app.ui.screens.PlayerScreen
+import com.localshorts.app.ui.screens.SettingsScreen
+import com.localshorts.app.ui.theme.HollowTheme
+import com.localshorts.app.ui.viewmodel.MainViewModel
 
-/**
- * Single activity. FragmentActivity is needed for the system unlock prompt.
- * Screenshots and screen recording are always allowed: FLAG_SECURE is never set.
- */
-class MainActivity : FragmentActivity() {
-    /** True while the app lock screen should cover the content. */
-    val locked = mutableStateOf(false)
-    private var lockEnabled = false
-    private var stoppedAt = 0L
-    private var authInProgress = false
-    /** Set while Hollow opens a system screen itself (folder picker), so returning doesn't relock. */
-    var suppressNextLock = false
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
-        lockEnabled = getSharedPreferences("lock", MODE_PRIVATE).getBoolean("enabled", false)
-        if (lockEnabled && savedInstanceState == null) locked.value = true
+        super.onCreate(savedInstanceState)
+
         setContent {
-            val vm: MainViewModel = viewModel()
-            HollowRoot(vm, this)
-        }
-    }
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+            val transitionState by viewModel.transitionUiState.collectAsStateWithLifecycle()
+            val isSettingsOpen by viewModel.isSettingsOpen.collectAsStateWithLifecycle()
+            val lifecycleOwner = LocalLifecycleOwner.current
 
-    /** Mirrors the setting into a synchronous store so the lock can engage before the UI loads. */
-    fun setLockEnabled(on: Boolean) {
-        lockEnabled = on
-        getSharedPreferences("lock", MODE_PRIVATE).edit().putBoolean("enabled", on).apply()
-        if (!on) locked.value = false
-    }
-
-    fun canUseDeviceAuth(): Boolean =
-        BiometricManager.from(this).canAuthenticate(BIOMETRIC_WEAK or DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
-
-    fun authenticate(onResult: (Boolean) -> Unit = {}) {
-        if (authInProgress) return
-        if (!canUseDeviceAuth()) {
-            // No screen lock on the phone: nothing to verify against, so don't trap the user
-            locked.value = false
-            onResult(false)
-            return
-        }
-        authInProgress = true
-        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                authInProgress = false
-                locked.value = false
-                onResult(true)
+            // Keep the screen awake only while a video is actively playing in the player.
+            DisposableEffect(playbackState.isPlayerOpen, playbackState.isUserPaused) {
+                if (playbackState.isPlayerOpen && !playbackState.isUserPaused) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                onDispose {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
             }
 
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                authInProgress = false
-                onResult(false)
+            // Backgrounding immediately pauses and mutes every pooled player.
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    when (event) {
+                        Lifecycle.Event.ON_START -> viewModel.playbackCoordinator.onAppLifecycleStarted()
+                        Lifecycle.Event.ON_STOP -> viewModel.playbackCoordinator.onAppLifecycleStopped()
+                        else -> Unit
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
             }
-        })
-        val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Hollow")
-            .setSubtitle("Use your fingerprint, face, or screen lock")
-            .setAllowedAuthenticators(BIOMETRIC_WEAK or DEVICE_CREDENTIAL)
-            .build()
-        prompt.authenticate(info)
-    }
 
-    override fun onStop() {
-        super.onStop()
-        if (!authInProgress) stoppedAt = SystemClock.elapsedRealtime()
-    }
+            val folderPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocumentTree()
+            ) { uri ->
+                if (uri != null) {
+                    viewModel.onFolderPicked(uri)
+                }
+            }
 
-    override fun onStart() {
-        super.onStart()
-        val away = SystemClock.elapsedRealtime() - stoppedAt
-        if (lockEnabled && stoppedAt > 0 && !authInProgress && !suppressNextLock && away > 1500) {
-            locked.value = true
+            HollowTheme(
+                accentPreset = uiState.settings.accentPreset,
+                gradientPreset = uiState.settings.gradientPreset,
+                iconStylePreset = uiState.settings.iconStylePreset
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // 1. Gallery: stays composed under everything so scroll position, tab and
+                    // thumbnail coordinates survive playback and settings.
+                    GalleryScreen(
+                        uiState = uiState,
+                        thumbnailCache = viewModel.thumbnailCache,
+                        onAddFolderClick = { folderPickerLauncher.launch(null) },
+                        onSelectFolder = { viewModel.selectSavedFolder(it) },
+                        onRefreshFolder = { viewModel.refreshActiveFolder() },
+                        onSelectTab = { viewModel.setSelectedTab(it) },
+                        onSearchQueryChange = { viewModel.setSearchQuery(it) },
+                        onCycleGridColumns = {
+                            val nextCols = (uiState.settings.gridColumns % 4) + 1
+                            viewModel.setGridColumns(nextCols)
+                        },
+                        onOpenSettings = { viewModel.openSettings() },
+                        onVideoTapped = { video, bounds ->
+                            viewModel.onThumbnailTapped(video, bounds)
+                        },
+                        onToggleFavourite = { viewModel.toggleFavourite(it) },
+                        onRegisterThumbnailBounds = { id, rect ->
+                            viewModel.registerThumbnailBounds(id, rect)
+                        },
+                        onUnregisterThumbnailBounds = { id ->
+                            viewModel.unregisterThumbnailBounds(id)
+                        },
+                        onSaveScrollPosition = { index, offset ->
+                            viewModel.saveGalleryScrollState(index, offset)
+                        }
+                    )
+
+                    // 2. Player: composed as soon as a thumbnail is tapped so its TextureViews get
+                    // surfaces and render the first frame while the cover is still expanding.
+                    // Alpha stays > 0 while covered so the TextureView layer keeps drawing.
+                    if (playbackState.isPlayerOpen) {
+                        val isCovered = transitionState.phase != TransitionPhase.IDLE
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(if (isCovered) 0.01f else 1f)
+                        ) {
+                            PlayerScreen(
+                                playbackState = playbackState,
+                                settings = uiState.settings,
+                                playbackCoordinator = viewModel.playbackCoordinator,
+                                thumbnailCache = viewModel.thumbnailCache,
+                                onClosePlayer = { viewModel.requestClosePlayer() },
+                                onToggleFavourite = { viewModel.toggleFavourite(it) },
+                                onSelectSpeed = { viewModel.setPlaybackSpeed(it) },
+                                onSelectEndBehavior = { viewModel.setEndBehavior(it) },
+                                onToggleVideoInfo = { viewModel.toggleVideoInfoOverlay() },
+                                onOpenSettings = { viewModel.openSettings() }
+                            )
+                        }
+                    }
+
+                    // 3. Geometry transition overlay.
+                    OpeningTransitionOverlay(
+                        transitionState = transitionState,
+                        thumbnailCache = viewModel.thumbnailCache,
+                        onOpeningGeometryFinished = { viewModel.onOpeningGeometryFinished() },
+                        onCoverDismissed = { viewModel.onCoverDismissed() },
+                        onClosingFinished = { viewModel.finishClosePlayer() }
+                    )
+
+                    // 4. Settings layer; closing it returns to the exact previous gallery/player state.
+                    AnimatedVisibility(
+                        visible = isSettingsOpen,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        SettingsScreen(
+                            settings = uiState.settings,
+                            onBack = { viewModel.closeSettings() },
+                            onSelectAccent = { viewModel.setAccentPreset(it) },
+                            onSelectGradient = { viewModel.setGradientPreset(it) },
+                            onSelectIconStyle = { viewModel.setIconStylePreset(it) },
+                            onSelectGridColumns = { viewModel.setGridColumns(it) },
+                            onSelectDefaultSpeed = { viewModel.setPlaybackSpeed(it) },
+                            onSelectEndBehavior = { viewModel.setEndBehavior(it) },
+                            onSelectSwipeTransitionSpeed = { viewModel.setSwipeTransitionSpeed(it) },
+                            onToggleBrightnessGesture = { viewModel.setGestureBrightnessEnabled(it) },
+                            onToggleVolumeGesture = { viewModel.setGestureVolumeEnabled(it) },
+                            onSelectMiddleGesture = { viewModel.setMiddleGestureAction(it) },
+                            onAddFolder = { folderPickerLauncher.launch(null) },
+                            onSelectActiveFolder = { viewModel.selectSavedFolder(it) },
+                            onRemoveFolder = { viewModel.removeSavedFolder(it) },
+                            onRefreshLibrary = { viewModel.refreshActiveFolder() }
+                        )
+                    }
+                }
+            }
         }
-        suppressNextLock = false
     }
 }

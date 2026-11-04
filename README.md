@@ -1,19 +1,6 @@
 # Hollow
-
-A private, offline, Shorts-style player for videos in your own folders, including hidden `.nomedia` folders.
-
-## Get the APK
-Every push to `main` builds the app on GitHub Actions. Open the **Actions** tab, pick the latest green run, and download **Hollow-debug-apk**.
-
-The repo includes a fixed debug signing key (`app/debug.keystore`), so each new build installs over the previous one.
-
-## Build locally
-Needs JDK 17 and the Android SDK. The Gradle wrapper is generated, not committed:
-
-```
-gradle wrapper --gradle-version 8.7
-./gradlew assembleDebug
-```
-
-## Stack
-Kotlin, Jetpack Compose (Material 3), Media3 ExoPlayer, DataStore, Storage Access Framework. minSdk 26, targetSdk 34.
+1. Push all files to a GitHub repository and open the **Actions** tab to run the `Android Debug APK CI` workflow, or build locally with JDK 17 and Gradle 8.7 using `gradle assembleDebug`.
+2. Download the `hollow-debug-apk` artifact (`app-debug.apk`) from the completed GitHub Actions run or from `app/build/outputs/apk/debug/app-debug.apk`.
+3. Enable "Install unknown apps" on your Android device (Android 8.0 / API 26+) or run `adb install -r app-debug.apk`.
+4. Launch **Hollow** and tap **Add Video Folder** to grant Storage Access Framework (SAF) read access to any local directory, including hidden `.nomedia` folders.
+5. Tap any video thumbnail to expand smoothly into the vertical Shorts player.

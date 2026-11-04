@@ -1,7 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#FF15171A</color>
-    <color name="ic_bg_hollow">#FF15171A</color>
-    <color name="ic_bg_stack">#FF15171A</color>
-    <color name="ic_bg_orbit">#FF15171A</color>
-    <color name="ic_bg_mono">#FF0E0F11</color>
+   <color name="hollow_obsidian">#FF0A0A0E</color>
+   <color name="hollow_violet">#FF9D7BFF</color>
+   <color name="black">#FF000000</color>
+   <color name="white">#FFFFFFFF</color>
 </resources>
