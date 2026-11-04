@@ -1,7 +1,6 @@
 package com.localshorts.app.model
 
 import android.graphics.Bitmap
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
