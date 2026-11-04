@@ -324,7 +324,7 @@ fun PlayerScreen(
                     .background(Color.Black.copy(alpha = 0.55f))
                     .border(
                         width = 1.dp,
-                        color = if (currentVideo.thumbnailTimeMs != null) {
+                        color = if (currentVideo.hasCustomThumbnail) {
                             hollowColors.accentPrimary.copy(alpha = 0.7f)
                         } else {
                             Color.White.copy(alpha = 0.14f)
@@ -341,7 +341,7 @@ fun PlayerScreen(
                             onLongPress = {
                                 lastInteractionTimestamp = System.currentTimeMillis()
                                 onResetThumbnail(currentVideo.stableId)
-                                thumbnailToast = "Thumbnail reset to automatic"
+                                thumbnailToast = "Thumbnail reset to default"
                             }
                         )
                     },
@@ -350,7 +350,7 @@ fun PlayerScreen(
                 Icon(
                     imageVector = Icons.Rounded.Image,
                     contentDescription = "Set current frame as thumbnail",
-                    tint = if (currentVideo.thumbnailTimeMs != null) hollowColors.accentPrimary else Color.White,
+                    tint = if (currentVideo.hasCustomThumbnail) hollowColors.accentPrimary else Color.White,
                     modifier = Modifier.size(20.dp)
                 )
             }

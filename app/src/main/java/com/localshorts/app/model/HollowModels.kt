@@ -84,8 +84,10 @@ data class VideoItem(
    val lastModifiedMs: Long,
    val isFavourite: Boolean = false,
    val watchCount: Int = 0,
-   /** User-chosen thumbnail frame position, null = automatic. */
-   val thumbnailTimeMs: Long? = null
+   /** Effective thumbnail frame position (individual override or global fixed time), null = automatic. */
+   val thumbnailTimeMs: Long? = null,
+   /** True when this video has its own individually chosen thumbnail. */
+   val hasCustomThumbnail: Boolean = false
 ) {
    /** Cache key that changes whenever the chosen thumbnail frame changes. */
    val thumbnailKey: String get() = "${stableId}@${thumbnailTimeMs ?: -1L}"
@@ -133,7 +135,9 @@ data class AppSettings(
    val savedFolders: List<FolderEntry> = emptyList(),
    val lastSelectedVideoId: String? = null,
    val lastGalleryScrollIndex: Int = 0,
-   val lastGalleryScrollOffset: Int = 0
+   val lastGalleryScrollOffset: Int = 0,
+   /** Default thumbnail frame for every video, in seconds. null = automatic. */
+   val thumbnailFixedSeconds: Int? = null
 )
 
 data class ThumbnailBounds(

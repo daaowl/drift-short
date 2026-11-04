@@ -45,7 +45,8 @@ data class HollowUiState(
     val searchQuery: String = "",
     val displayedVideos: List<VideoItem> = emptyList(),
     val totalFolderVideoCount: Int = 0,
-    val favouritesCount: Int = 0
+    val favouritesCount: Int = 0,
+    val customThumbnailCount: Int = 0
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -112,7 +113,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 video.copy(
                     isFavourite = inputs.userStats.favouriteIds.contains(video.stableId),
                     watchCount = inputs.userStats.watchCounts[video.stableId] ?: 0,
-                    thumbnailTimeMs = inputs.userStats.thumbnailTimes[video.stableId]
+                    thumbnailTimeMs = effectiveThumbnailTime(
+                        override = inputs.userStats.thumbnailTimes[video.stableId],
+                        fixedSeconds = inputs.settings.thumbnailFixedSeconds,
+                        durationMs = video.durationMs
+                    ),
+                    hasCustomThumbnail = inputs.userStats.thumbnailTimes.containsKey(video.stableId)
                 )
             }
 
@@ -154,7 +160,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 searchQuery = inputs.searchQuery,
                 displayedVideos = sorted,
                 totalFolderVideoCount = enrichedVideos.size,
-                favouritesCount = enrichedVideos.count { it.isFavourite }
+                favouritesCount = enrichedVideos.count { it.isFavourite },
+                customThumbnailCount = enrichedVideos.count { it.hasCustomThumbnail }
             )
         }
         // Sorting, filtering and the SAF permission checks must never run on the main thread.
@@ -369,6 +376,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setThumbnailFromCurrentFrame(videoId: String) {
         val positionMs = playbackCoordinator.progress.value.positionMs
         viewModelScope.launch { preferencesStore.setThumbnailTime(videoId, positionMs) }
+    }
+
+    fun setThumbnailFixedSeconds(seconds: Int?) {
+        viewModelScope.launch { preferencesStore.setThumbnailFixedSeconds(seconds) }
+    }
+
+    fun clearAllThumbnailOverrides() {
+        viewModelScope.launch { preferencesStore.clearAllThumbnailOverrides() }
+    }
+
+    private fun effectiveThumbnailTime(override: Long?, fixedSeconds: Int?, durationMs: Long): Long? {
+        if (override != null) return override
+        if (fixedSeconds == null) return null
+        val fixedMs = fixedSeconds * 1000L
+        // Clips shorter than the global time use their midpoint instead of a blank end frame.
+        return if (durationMs in 1L..fixedMs) durationMs / 2 else fixedMs
     }
 
     fun resetThumbnail(videoId: String) {

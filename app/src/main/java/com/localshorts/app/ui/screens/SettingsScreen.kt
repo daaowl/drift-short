@@ -76,6 +76,9 @@ fun SettingsScreen(
    onSelectActiveFolder: (FolderEntry) -> Unit,
    onRemoveFolder: (FolderEntry) -> Unit,
    onRefreshLibrary: () -> Unit,
+   customThumbnailCount: Int,
+   onSelectThumbnailFixedSeconds: (Int?) -> Unit,
+   onClearThumbnailOverrides: () -> Unit,
    modifier: Modifier = Modifier
 ) {
    BackHandler(onBack = onBack)
@@ -240,6 +243,102 @@ fun SettingsScreen(
                            }
                        }
                    }
+               }
+           }
+
+           // SECTION: THUMBNAILS
+           SettingsSectionCard(title = "Thumbnails") {
+               val fixed = settings.thumbnailFixedSeconds
+               Text(
+                   text = "Default thumbnail frame",
+                   color = hollowColors.textPrimary,
+                   fontSize = 13.sp,
+                   fontWeight = FontWeight.Medium
+               )
+               Text(
+                   text = "Applies to every video without its own thumbnail.",
+                   color = hollowColors.textSecondary,
+                   fontSize = 11.sp
+               )
+               Spacer(modifier = Modifier.height(8.dp))
+               Row(
+                   horizontalArrangement = Arrangement.spacedBy(8.dp),
+                   modifier = Modifier.fillMaxWidth()
+               ) {
+                   SelectablePill(
+                       label = "Automatic",
+                       selected = fixed == null,
+                       onClick = { onSelectThumbnailFixedSeconds(null) },
+                       modifier = Modifier.weight(1f)
+                   )
+                   SelectablePill(
+                       label = "Fixed time",
+                       selected = fixed != null,
+                       onClick = { if (fixed == null) onSelectThumbnailFixedSeconds(3) },
+                       modifier = Modifier.weight(1f)
+                   )
+               }
+
+               if (fixed != null) {
+                   Spacer(modifier = Modifier.height(12.dp))
+                   Row(
+                       verticalAlignment = Alignment.CenterVertically,
+                       modifier = Modifier.fillMaxWidth()
+                   ) {
+                       Text(
+                           text = "Time into each video",
+                           color = hollowColors.textPrimary,
+                           fontSize = 13.sp,
+                           modifier = Modifier.weight(1f)
+                       )
+                       StepperButton(label = "−", enabled = fixed > 0) {
+                           onSelectThumbnailFixedSeconds((fixed - 1).coerceAtLeast(0))
+                       }
+                       Text(
+                           text = "$fixed s",
+                           color = hollowColors.textPrimary,
+                           fontSize = 14.sp,
+                           fontWeight = FontWeight.SemiBold,
+                           modifier = Modifier.padding(horizontal = 12.dp)
+                       )
+                       StepperButton(label = "+", enabled = fixed < 600) {
+                           onSelectThumbnailFixedSeconds((fixed + 1).coerceAtMost(600))
+                       }
+                   }
+                   Spacer(modifier = Modifier.height(8.dp))
+                   Row(
+                       horizontalArrangement = Arrangement.spacedBy(6.dp),
+                       modifier = Modifier.fillMaxWidth()
+                   ) {
+                       listOf(1, 3, 5, 10, 30).forEach { s ->
+                           SelectablePill(
+                               label = "${s}s",
+                               selected = fixed == s,
+                               onClick = { onSelectThumbnailFixedSeconds(s) },
+                               modifier = Modifier.weight(1f)
+                           )
+                       }
+                   }
+               }
+
+               Spacer(modifier = Modifier.height(12.dp))
+               Text(
+                   text = if (customThumbnailCount > 0) {
+                       "$customThumbnailCount video${if (customThumbnailCount == 1) " has" else "s have"} an individual thumbnail, which overrides the default."
+                   } else {
+                       "To give one video its own thumbnail, tap the image button in the player. Long-press it to go back to the default."
+                   },
+                   color = hollowColors.textSecondary,
+                   fontSize = 11.sp
+               )
+               if (customThumbnailCount > 0) {
+                   Spacer(modifier = Modifier.height(8.dp))
+                   SelectablePill(
+                       label = "Reset all individual thumbnails",
+                       selected = false,
+                       onClick = onClearThumbnailOverrides,
+                       modifier = Modifier.fillMaxWidth()
+                   )
                }
            }
 
@@ -511,6 +610,30 @@ private fun SettingsSectionCard(
        )
        Spacer(modifier = Modifier.height(10.dp))
        content()
+   }
+}
+
+@Composable
+private fun StepperButton(
+   label: String,
+   enabled: Boolean,
+   onClick: () -> Unit
+) {
+   val hollowColors = LocalHollowColors.current
+   Box(
+       modifier = Modifier
+           .size(34.dp)
+           .clip(CircleShape)
+           .background(hollowColors.surfaceElevated)
+           .clickable(enabled = enabled) { onClick() },
+       contentAlignment = Alignment.Center
+   ) {
+       Text(
+           text = label,
+           color = if (enabled) hollowColors.textPrimary else hollowColors.textSecondary,
+           fontSize = 17.sp,
+           fontWeight = FontWeight.SemiBold
+       )
    }
 }
 

@@ -177,7 +177,10 @@ class MainActivity : ComponentActivity() {
                             onAddFolder = { folderPickerLauncher.launch(null) },
                             onSelectActiveFolder = { viewModel.selectSavedFolder(it) },
                             onRemoveFolder = { viewModel.removeSavedFolder(it) },
-                            onRefreshLibrary = { viewModel.refreshActiveFolder() }
+                            onRefreshLibrary = { viewModel.refreshActiveFolder() },
+                            customThumbnailCount = uiState.customThumbnailCount,
+                            onSelectThumbnailFixedSeconds = { viewModel.setThumbnailFixedSeconds(it) },
+                            onClearThumbnailOverrides = { viewModel.clearAllThumbnailOverrides() }
                         )
                     }
                 }

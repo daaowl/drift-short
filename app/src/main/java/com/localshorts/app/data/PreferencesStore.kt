@@ -58,6 +58,7 @@ class PreferencesStore(private val context: Context) {
        val FAVOURITE_IDS = stringSetPreferencesKey("favourite_video_ids")
        val WATCH_COUNTS_JSON = stringPreferencesKey("watch_counts_json")
        val THUMBNAIL_TIMES_JSON = stringPreferencesKey("thumbnail_times_json")
+       val THUMBNAIL_FIXED_SECONDS = intPreferencesKey("thumbnail_fixed_seconds")
    }
 
    val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -104,7 +105,8 @@ class PreferencesStore(private val context: Context) {
                savedFolders = parseFoldersJson(prefs[Keys.SAVED_FOLDERS_JSON]),
                lastSelectedVideoId = prefs[Keys.LAST_SELECTED_VIDEO_ID],
                lastGalleryScrollIndex = prefs[Keys.LAST_SCROLL_INDEX] ?: 0,
-               lastGalleryScrollOffset = prefs[Keys.LAST_SCROLL_OFFSET] ?: 0
+               lastGalleryScrollOffset = prefs[Keys.LAST_SCROLL_OFFSET] ?: 0,
+               thumbnailFixedSeconds = prefs[Keys.THUMBNAIL_FIXED_SECONDS]?.takeIf { it >= 0 }
            )
        }
 
@@ -254,6 +256,18 @@ class PreferencesStore(private val context: Context) {
            map[stableVideoId] = nextCount
            prefs[Keys.WATCH_COUNTS_JSON] = encodeWatchCountsJson(map)
        }
+   }
+
+   /** Global thumbnail frame for all videos. null = automatic. */
+   suspend fun setThumbnailFixedSeconds(seconds: Int?) {
+       context.dataStore.edit { prefs ->
+           prefs[Keys.THUMBNAIL_FIXED_SECONDS] = seconds?.coerceIn(0, 600) ?: -1
+       }
+   }
+
+   /** Removes every individual thumbnail override. */
+   suspend fun clearAllThumbnailOverrides() {
+       context.dataStore.edit { prefs -> prefs.remove(Keys.THUMBNAIL_TIMES_JSON) }
    }
 
    /** Saves a custom thumbnail position for a video; null restores the automatic frame. */
