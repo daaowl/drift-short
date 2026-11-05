@@ -26,6 +26,9 @@ import java.io.FileOutputStream
  *
  * Requests nobody is waiting for any more (tile scrolled away) are cancelled before they decode.
  */
+const val PREVIEW_FRAMES = 10
+const val PREVIEW_STEP_MS = 220L
+
 class ThumbnailLoader(private val context: Context, private val store: ThumbStore) {
     private val mem = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 5).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
@@ -52,6 +55,13 @@ class ThumbnailLoader(private val context: Context, private val store: ThumbStor
     }
 
     suspend fun startFrame(v: VideoItem): Bitmap? = load("s_" + v.id) { makeStart(v) }
+
+    /**
+     * A short moving preview of the video's first two seconds for the grid: [PREVIEW_FRAMES] small
+     * frames laid side by side in one strip bitmap (cheap to cache, one disk file per video).
+     */
+    fun cachedPreview(v: VideoItem): Bitmap? = mem.get("p_" + v.id)
+    suspend fun preview(v: VideoItem): Bitmap? = load("p_" + v.id) { makePreview(v) }
 
     /** Drops cached covers after the global rule changes. Start frames stay. */
     fun clearCovers() {
@@ -120,7 +130,40 @@ class ThumbnailLoader(private val context: Context, private val store: ThumbStor
         try {
             duration(v, r)
             currentCoroutineContext().ensureActive()
-            return frame(r, 0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1080)
+            val f = frame(r, 0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 720) ?: return null
+            // Half the memory; this frame is only ever shown briefly
+            val small = f.copy(Bitmap.Config.RGB_565, false) ?: return f
+            f.recycle()
+            return small
+        } finally {
+            r.release()
+        }
+    }
+
+    private suspend fun makePreview(v: VideoItem): Bitmap? {
+        val r = open(v)
+        try {
+            val dur = duration(v, r)
+            val frames = ArrayList<Bitmap>()
+            for (i in 0 until PREVIEW_FRAMES) {
+                currentCoroutineContext().ensureActive()
+                val t = i * PREVIEW_STEP_MS
+                if (dur > 0 && t > dur - 100 && frames.isNotEmpty()) break
+                val opt = if (i == 0) MediaMetadataRetriever.OPTION_CLOSEST_SYNC else MediaMetadataRetriever.OPTION_CLOSEST
+                frame(r, t, opt, 400)?.let { frames += it }
+            }
+            if (frames.isEmpty()) return null
+            // Short clips: repeat the last frame so the strip always has PREVIEW_FRAMES frames
+            while (frames.size < PREVIEW_FRAMES) frames += frames.last().copy(frames.last().config ?: Bitmap.Config.RGB_565, false)
+            val w = frames[0].width
+            val h = frames[0].height
+            val strip = Bitmap.createBitmap(w * frames.size, h, Bitmap.Config.RGB_565)
+            val c = android.graphics.Canvas(strip)
+            frames.forEachIndexed { i, b ->
+                c.drawBitmap(b, null, android.graphics.Rect(i * w, 0, (i + 1) * w, h), null)
+                b.recycle()
+            }
+            return strip
         } finally {
             r.release()
         }

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.provider.Settings as SystemSettings
+import android.graphics.Bitmap
 import android.view.TextureView
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -148,6 +149,7 @@ fun PlayerScreen(
     closing: Boolean,
     onFirstFrame: (String) -> Unit,
     onClose: (currentId: String) -> Unit,
+    frameGrab: FrameGrab? = null,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -360,6 +362,7 @@ fun PlayerScreen(
                 loader = vm.thumbs,
                 failed = videos[page].id in failed,
                 onRendered = onFirstFrame,
+                grab = if (page == dominant) frameGrab else null,
             )
         }
 
@@ -640,6 +643,7 @@ private fun VideoPage(
     loader: ThumbnailLoader,
     failed: Boolean,
     onRendered: (String) -> Unit,
+    grab: FrameGrab? = null,
 ) {
     val context = LocalContext.current
     val start by produceState(initialValue = loader.cachedStart(video), video.id) {
@@ -649,6 +653,20 @@ private fun VideoPage(
     var videoSize by remember(video.id) { mutableStateOf<VideoSize?>(null) }
     val textureView = remember { TextureView(context) }
     val onRenderedNow by rememberUpdatedState(onRendered)
+    // Let the closing animation start from exactly what is on screen
+    if (grab != null && player != null) {
+        DisposableEffect(grab, textureView) {
+            val fn: () -> Bitmap? = {
+                if (textureView.isAvailable && textureView.width > 0) {
+                    textureView.getBitmap((textureView.width / 2).coerceAtLeast(1), (textureView.height / 2).coerceAtLeast(1))
+                } else {
+                    null
+                }
+            }
+            grab.grab = fn
+            onDispose { if (grab.grab === fn) grab.grab = null }
+        }
+    }
     LaunchedEffect(failed) { if (failed) onRenderedNow(video.id) }
 
     if (player != null) {
@@ -976,4 +994,9 @@ private fun ActionChip(glyph: Glyph, text: String, accent: Color, label: String,
         Spacer(Modifier.width(5.dp))
         Text(text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
+}
+
+/** Lets the host grab the frame currently on screen, so closing starts from it. */
+class FrameGrab {
+    var grab: (() -> Bitmap?)? = null
 }

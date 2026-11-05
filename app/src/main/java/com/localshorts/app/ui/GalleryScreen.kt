@@ -3,6 +3,11 @@ package com.localshorts.app.ui
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -175,6 +180,8 @@ fun GalleryScreen(
                         v = v,
                         loader = vm.thumbs,
                         thumbVersion = thumbVersion,
+                        preview = settings.openStyle == com.localshorts.app.data.OpenStyle.GOAT,
+                        warmStart = settings.openStyle != com.localshorts.app.data.OpenStyle.YOUTUBE,
                         columns = cols,
                         favourite = v.id in favs,
                         views = watch[v.id] ?: 0,
@@ -411,6 +418,8 @@ private fun Thumb(
     v: VideoItem,
     loader: ThumbnailLoader,
     thumbVersion: Int,
+    preview: Boolean,
+    warmStart: Boolean,
     columns: Int,
     favourite: Boolean,
     views: Int,
@@ -418,6 +427,17 @@ private fun Thumb(
     onClick: () -> Unit,
 ) {
     val bmp = rememberCover(v, loader, thumbVersion)
+    // Have the 0:00 frame ready before a tap, so the opening grows a real frame straight away
+    if (warmStart) {
+        LaunchedEffect(v.id, bmp != null) { if (bmp != null) loader.startFrame(v) }
+    }
+    val strip = if (preview) {
+        produceState(initialValue = loader.cachedPreview(v), v.id) {
+            if (value == null) value = loader.preview(v)
+        }.value
+    } else {
+        null
+    }
     val small = columns >= 3
     Box(
         modifier
@@ -426,7 +446,9 @@ private fun Thumb(
             .background(Hc.Surface)
             .clickable(onClick = onClick),
     ) {
-        if (bmp != null) {
+        if (strip != null) {
+            PreviewFlipbook(strip, Modifier.fillMaxSize())
+        } else if (bmp != null) {
             Image(
                 bitmap = bmp.asImageBitmap(),
                 contentDescription = v.name,
@@ -474,4 +496,54 @@ fun viewsLabel(n: Int): String = when {
 private fun trim1(d: Double): String {
     val s = String.format(java.util.Locale.US, "%.1f", d)
     return if (s.endsWith(".0")) s.dropLast(2) else s
+}
+
+/**
+ * Plays a preview strip (frames side by side) as a soft looping flipbook, cropped like the tile.
+ * Each frame blends into the next, and the animation only redraws; it never recomposes.
+ */
+@Composable
+fun PreviewFlipbook(strip: Bitmap, modifier: Modifier = Modifier) {
+    val image = remember(strip) { strip.asImageBitmap() }
+    val frameH = strip.height
+    // The loader always writes exactly PREVIEW_FRAMES frames side by side
+    val count = com.localshorts.app.data.PREVIEW_FRAMES
+    val frameW = (strip.width / count).coerceAtLeast(1)
+    val clock = rememberInfiniteTransition(label = "preview")
+    val pos by clock.animateFloat(
+        initialValue = 0f,
+        targetValue = count.toFloat(),
+        animationSpec = infiniteRepeatable(tween(durationMillis = (count * com.localshorts.app.data.PREVIEW_STEP_MS).toInt(), easing = LinearEasing)),
+        label = "preview-frame",
+    )
+    androidx.compose.foundation.Canvas(modifier) {
+        val k = pos.toInt().coerceIn(0, count - 1)
+        val next = (k + 1) % count
+        val blend = (pos - k).coerceIn(0f, 1f)
+        // centre-crop each frame to the tile's shape
+        val tileRatio = size.width / size.height
+        val frameRatio = frameW.toFloat() / frameH
+        val srcW: Int
+        val srcH: Int
+        if (frameRatio > tileRatio) {
+            srcH = frameH
+            srcW = (frameH * tileRatio).toInt().coerceIn(1, frameW)
+        } else {
+            srcW = frameW
+            srcH = (frameW / tileRatio).toInt().coerceIn(1, frameH)
+        }
+        val dx = (frameW - srcW) / 2
+        val dy = (frameH - srcH) / 2
+        val dst = androidx.compose.ui.unit.IntSize(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1))
+        drawImage(image, srcOffset = androidx.compose.ui.unit.IntOffset(k * frameW + dx, dy), srcSize = androidx.compose.ui.unit.IntSize(srcW, srcH), dstSize = dst)
+        if (blend > 0.6f) {
+            drawImage(
+                image,
+                srcOffset = androidx.compose.ui.unit.IntOffset(next * frameW + dx, dy),
+                srcSize = androidx.compose.ui.unit.IntSize(srcW, srcH),
+                dstSize = dst,
+                alpha = ((blend - 0.6f) / 0.4f).coerceIn(0f, 1f),
+            )
+        }
+    }
 }

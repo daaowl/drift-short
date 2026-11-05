@@ -11,8 +11,8 @@ android {
         applicationId = "com.localshorts.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 5
+        versionName = "0.5"
     }
 
     // Fixed debug key in the repo, so every CI build installs over the previous one.

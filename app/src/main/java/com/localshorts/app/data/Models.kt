@@ -27,10 +27,11 @@ enum class TransitionSpeed(val label: String) { SLOW("Slow"), NORMAL("Normal"), 
 
 /** How a video opens from the grid (and closes back into it). */
 enum class OpenStyle(val label: String, val summary: String) {
-    HOLLOW("Hollow", "Grows out of the tile and fades into the video mid-motion"),
-    YOUTUBE("YouTube style", "Quick solid expand; the cover holds until the video starts"),
-    INSTAGRAM("Instagram style", "Zooms in from the tile while fading in"),
-    TIKTOK("TikTok style", "Slides up from the bottom of the screen"),
+    GOAT("Goat's idea", "Grid tiles play a short preview; tapping grows that first frame straight into the video"),
+    HOLLOW("Hollow", "Grows out of the tile and flows into the video mid-motion"),
+    YOUTUBE("YouTube", "Gallery slides down and fades while the video fades in, rebuilt from your recording"),
+    INSTAGRAM("Instagram (iOS)", "Zooms out of the tile while the gallery recedes behind it"),
+    TIKTOK("TikTok", "A quick, springy expand from the tile"),
 }
 
 /** How the title and details sit on the player. */
