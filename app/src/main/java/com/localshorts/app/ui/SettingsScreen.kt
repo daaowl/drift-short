@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -58,11 +60,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
+import kotlin.math.roundToInt
 import com.localshorts.app.MainActivity
 import com.localshorts.app.MainViewModel
 import com.localshorts.app.data.ACCENTS
 import com.localshorts.app.data.APP_ICONS
 import com.localshorts.app.data.EndBehavior
+import com.localshorts.app.data.InfoStyle
 import com.localshorts.app.data.SPEEDS
 import com.localshorts.app.data.ThumbMode
 import com.localshorts.app.data.TransitionSpeed
@@ -175,8 +184,19 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
                 if (mode == ThumbMode.FIXED) {
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Time into each video", color = Hc.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
-                        Stepper(value = seconds, suffix = " s", min = 0, max = 600) { seconds = it }
+                        SecondsField(seconds, accent) { seconds = it }
                     }
+                    Slider(
+                        value = seconds.coerceAtMost(120).toFloat(),
+                        onValueChange = { seconds = it.roundToInt() },
+                        valueRange = 0f..120f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = accent,
+                            activeTrackColor = accent,
+                            inactiveTrackColor = Hc.Surface2,
+                        ),
+                    )
+                    Hint("Slide up to 2 minutes, or type any second up to 600.")
                 } else {
                     Hint("Uses the frame 2 seconds after the first scene cut, so intros are skipped.", top = 10.dp)
                 }
@@ -200,6 +220,18 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
                     vm.setEnd(EndBehavior.values()[it])
                 }
                 Spacer(Modifier.height(14.dp))
+                Divider()
+                Label("Video details style", top = 14.dp)
+                Segmented(InfoStyle.values().map { it.label }, InfoStyle.values().indexOf(s.infoStyle), accent) {
+                    vm.setInfoStyle(InfoStyle.values()[it])
+                }
+                Hint(
+                    "Island keeps the title, date, size, length and views in a small card that stays on screen. " +
+                        "Classic shows the date and title above the seek bar and hides them with it.",
+                    top = 8.dp,
+                )
+                ToggleRow("Show details and action buttons", s.playerInfo, accent) { vm.setPlayerInfo(it) }
+                Hint("Same as the i button in the player.")
                 Divider()
                 Label("Short transition speed", top = 14.dp)
                 Segmented(TransitionSpeed.values().map { it.label }, TransitionSpeed.values().indexOf(s.transition), accent) {
@@ -461,5 +493,35 @@ private fun PillButton(
             Spacer(Modifier.width(6.dp))
         }
         Text(text, color = fg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** Typed seconds for the fixed thumbnail time. Accepts 0 to 600. */
+@Composable
+private fun SecondsField(seconds: Int, accent: Color, onChange: (Int) -> Unit) {
+    var text by remember(seconds) { mutableStateOf(seconds.toString()) }
+    Row(
+        Modifier
+            .width(86.dp)
+            .height(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Hc.Surface2)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = text,
+            onValueChange = { t ->
+                val digits = t.filter { it.isDigit() }.take(3)
+                text = digits
+                digits.toIntOrNull()?.let { onChange(it.coerceIn(0, 600)) }
+            },
+            singleLine = true,
+            textStyle = TextStyle(color = Hc.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End),
+            cursorBrush = SolidColor(accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.weight(1f),
+        )
+        Text(" s", color = Hc.Mute, fontSize = 15.sp)
     }
 }

@@ -12,6 +12,8 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -99,6 +101,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import com.localshorts.app.MainViewModel
+import com.localshorts.app.data.EndBehavior
+import com.localshorts.app.data.InfoStyle
 import com.localshorts.app.data.SPEEDS
 import com.localshorts.app.data.ThumbnailLoader
 import com.localshorts.app.data.TransitionSpeed
@@ -111,6 +115,7 @@ import com.localshorts.app.ui.Hc
 import com.localshorts.app.ui.LocalAccent
 import com.localshorts.app.ui.VideoTextShadow
 import com.localshorts.app.ui.formatTime
+import com.localshorts.app.ui.viewsLabel
 import com.localshorts.app.ui.onAccent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -213,6 +218,9 @@ fun PlayerScreen(
     }
 
     val playing by coordinator.playing.collectAsState()
+    val watch by vm.watchCounts.collectAsState()
+    val videoSize by coordinator.videoSize.collectAsState()
+    val duration by coordinator.durationMs.collectAsState()
     val failed by coordinator.failed.collectAsState()
     val paused = !playing
 
@@ -351,7 +359,7 @@ fun PlayerScreen(
             )
         }
 
-        // Top bar: back always (while shown); three dots only when paused
+        // Top bar: back on the left; "i" and three dots on the right. All auto-hide together.
         AnimatedVisibility(
             visible = showControls,
             enter = fadeIn(),
@@ -362,44 +370,39 @@ fun PlayerScreen(
                 Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = 10.dp,
-                        end = 10.dp,
-                        top = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() } + 6.dp,
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() } + 8.dp,
                     ),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SmallRoundButton(onClick = close, label = "Back") {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.weight(1f))
-                if (paused && current != null) {
+                SmallRoundButton(
+                    onClick = {
+                        vm.setPlayerInfo(!settings.playerInfo)
+                        poke++
+                    },
+                    label = if (settings.playerInfo) "Hide details" else "Show details",
+                ) {
+                    GlyphIcon(Glyph.INFO, if (settings.playerInfo) accent else Color.White, size = 18.dp)
+                }
+                if (current != null) {
                     Box {
                         SmallRoundButton(onClick = { menuOpen = true; poke++ }, label = "More") {
-                            GlyphIcon(Glyph.DOTS, Color.White, size = 20.dp)
+                            GlyphIcon(Glyph.DOTS, Color.White, size = 18.dp)
                         }
                         DropdownMenu(
                             expanded = menuOpen,
                             onDismissRequest = { menuOpen = false },
                             modifier = Modifier.background(Hc.Surface),
                         ) {
-                            val fav = current.id in favs
                             DropdownMenuItem(
-                                text = { Text(if (fav) "Remove from favourites" else "Add to favourites", color = Hc.Ink) },
-                                leadingIcon = {
-                                    Icon(
-                                        if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = null,
-                                        tint = if (fav) accent else Hc.Ink,
-                                    )
-                                },
-                                onClick = {
-                                    vm.toggleFavourite(current.id)
-                                    menuOpen = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Change thumbnail", color = Hc.Ink) },
-                                leadingIcon = { GlyphIcon(Glyph.IMAGE, Hc.Ink) },
+                                text = { Text("Choose thumbnail frame…", color = Hc.Ink) },
+                                leadingIcon = { GlyphIcon(Glyph.IMAGE, Hc.Ink, size = 20.dp) },
                                 onClick = {
                                     menuOpen = false
                                     editReturnMs = coordinator.positionNow()
@@ -409,72 +412,129 @@ fun PlayerScreen(
                                     editing = true
                                 },
                             )
-                            DropdownMenuItem(
-                                text = { Text("Playback speed  ·  ${speedLabel(coordinator.speed)}", color = Hc.Ink) },
-                                leadingIcon = { Text("${PlayerFormat.speed(coordinator.speed)}", color = Hc.Ink, fontSize = 13.sp) },
-                                onClick = {
-                                    menuOpen = false
-                                    speedOpen = true
-                                },
-                            )
+                            if (vm.thumbStore.hasOverride(current.id)) {
+                                DropdownMenuItem(
+                                    text = { Text("Reset thumbnail to default", color = Hc.Ink) },
+                                    leadingIcon = { GlyphIcon(Glyph.REPEAT, Hc.Ink, size = 20.dp) },
+                                    onClick = {
+                                        menuOpen = false
+                                        vm.resetThumbOverride(current.id)
+                                        Toast.makeText(context, "Thumbnail reset to default", Toast.LENGTH_SHORT).show()
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Bottom overlay: date, title, thin seek bar, times. Transparent, text shadows only.
-        AnimatedVisibility(
-            visible = showControls && current != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.BottomStart),
-        ) {
-            if (current != null) {
-                val navBottom = with(density) { WindowInsets.navigationBarsIgnoringVisibility.getBottom(this).toDp() }
-                Column(
+        // Bottom: details island / action stack (stay up, slide down when the seek bar hides),
+        // then the auto-hiding seek block. Everything is transparent over the video.
+        if (current != null && !editing) {
+            val navBottom = with(density) { WindowInsets.navigationBarsIgnoringVisibility.getBottom(this).toDp() }
+            val info = settings.playerInfo && entered && !closing
+            val island = settings.infoStyle == InfoStyle.ISLAND
+            Column(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(bottom = navBottom + 6.dp),
+            ) {
+                Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = navBottom + 10.dp),
+                        .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    Text(
-                        PlayerFormat.date(current.modified),
-                        style = TextStyle(color = Color.White.copy(alpha = 0.78f), fontSize = 11.sp, shadow = VideoTextShadow),
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        current.name,
-                        style = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, shadow = VideoTextShadow),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    SeekBar(
-                        coordinator = coordinator,
-                        accent = accent,
-                        onScrubbing = { scrubbing = it; poke++ },
-                    )
-                    TimeRow(coordinator)
+                    Box(Modifier.weight(1f)) {
+                        androidx.compose.animation.AnimatedVisibility(visible = info && island, enter = fadeIn(), exit = fadeOut()) {
+                            InfoIsland(
+                                video = current,
+                                views = watch[current.id] ?: 0,
+                                size = videoSize,
+                                durationMs = duration,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.animation.AnimatedVisibility(visible = info, enter = fadeIn(), exit = fadeOut()) {
+                        ActionStack(
+                            favourite = current.id in favs,
+                            speed = coordinator.speed,
+                            end = settings.end,
+                            accent = accent,
+                            onFavourite = { vm.toggleFavourite(current.id) },
+                            onThumbnail = {
+                                val ms = coordinator.positionNow()
+                                vm.setThumbOverride(current.id, ms)
+                                Toast.makeText(context, "Thumbnail set at ${formatTime(ms)}", Toast.LENGTH_SHORT).show()
+                            },
+                            onSpeed = { speedOpen = true; poke++ },
+                            onEnd = {
+                                val all = EndBehavior.values()
+                                vm.setEnd(all[(settings.end.ordinal + 1) % all.size])
+                            },
+                        )
+                    }
+                }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showControls,
+                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                    exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                        if (info && !island) {
+                            Text(
+                                listOf(PlayerFormat.date(current.modified), viewsLabel(watch[current.id] ?: 0))
+                                    .filter { it.isNotEmpty() }.joinToString("  ·  "),
+                                style = TextStyle(color = Color.White.copy(alpha = 0.78f), fontSize = 11.sp, shadow = VideoTextShadow),
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                current.name,
+                                style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, shadow = VideoTextShadow),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                        }
+                        SeekBar(
+                            coordinator = coordinator,
+                            accent = accent,
+                            onScrubbing = { scrubbing = it; poke++ },
+                        )
+                        TimeRow(coordinator)
+                    }
                 }
             }
         }
 
-        // Brightness / volume indicator
+        // Brightness / volume pill: icon, slider, percentage
         hud?.let { (glyph, value) ->
             Row(
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 72.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0x99000000))
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(top = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() } + 8.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xB31A1D21))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlyphIcon(glyph, Color.White, size = 18.dp)
+                GlyphIcon(glyph, accent, size = 18.dp)
                 Spacer(Modifier.width(10.dp))
-                Box(Modifier.width(96.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x40FFFFFF))) {
-                    Box(Modifier.fillMaxWidth(value).height(4.dp).background(accent))
+                Box(Modifier.width(120.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x33FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).height(4.dp).clip(RoundedCornerShape(2.dp)).background(accent))
                 }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "${(value * 100).toInt()}%",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(36.dp),
+                )
             }
         }
 
@@ -553,9 +613,9 @@ object PlayerFormat {
 private fun SmallRoundButton(onClick: () -> Unit, label: String, content: @Composable () -> Unit) {
     Box(
         Modifier
-            .size(38.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color(0x47000000))
+            .background(Color(0x59000000))
             .clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
@@ -673,7 +733,7 @@ private fun SeekBar(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .height(24.dp)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { o ->
@@ -707,15 +767,15 @@ private fun SeekBar(
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val h = when {
-                drag != null -> 4.dp.toPx()
-                thick -> 3.dp.toPx()
-                else -> 2.dp.toPx()
+                drag != null -> 3.dp.toPx()
+                thick -> 2.5.dp.toPx()
+                else -> 1.5.dp.toPx()
             }
             val y = size.height / 2 - h / 2
             drawRect(Color.White.copy(alpha = 0.28f), Offset(0f, y), Size(size.width, h))
             drawRect(accent, Offset(0f, y), Size(size.width * shown, h))
-            drawCircle(Color.Black.copy(alpha = 0.25f), radius = (if (drag != null) 8.dp else 6.dp).toPx() + 1.dp.toPx(), center = Offset(size.width * shown, y + h / 2 + 1.dp.toPx()))
-            drawCircle(accent, radius = (if (drag != null) 8.dp else 6.dp).toPx(), center = Offset(size.width * shown, y + h / 2))
+            drawCircle(Color.Black.copy(alpha = 0.25f), radius = (if (drag != null) 6.dp else 4.5.dp).toPx() + 1.dp.toPx(), center = Offset(size.width * shown, y + h / 2 + 1.dp.toPx()))
+            drawCircle(accent, radius = (if (drag != null) 6.dp else 4.5.dp).toPx(), center = Offset(size.width * shown, y + h / 2))
         }
     }
 }
@@ -825,4 +885,106 @@ private fun EditorButton(text: String, primary: Boolean, accent: Color, modifier
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
     )
+}
+
+/** Rounded translucent card with the title and details. Lives above the seek bar. */
+@Composable
+private fun InfoIsland(video: VideoItem, views: Int, size: VideoSize, durationMs: Long) {
+    val details = listOfNotNull(
+        PlayerFormat.date(video.modified).ifEmpty { null },
+        if (size.width > 0 && size.height > 0) "${size.width}\u00D7${size.height}" else null,
+        if (durationMs > 0) formatTime(durationMs) else null,
+        viewsLabel(views),
+    ).joinToString(" \u00B7 ")
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x8C15171A))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(
+            video.name,
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(details, color = Color.White.copy(alpha = 0.72f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Favourite, thumbnail, speed and end-behaviour controls stacked in the bottom-right corner. */
+@Composable
+private fun ActionStack(
+    favourite: Boolean,
+    speed: Float,
+    end: EndBehavior,
+    accent: Color,
+    onFavourite: () -> Unit,
+    onThumbnail: () -> Unit,
+    onSpeed: () -> Unit,
+    onEnd: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActionCircle(if (favourite) "Remove favourite" else "Add favourite", onFavourite) {
+            Icon(
+                if (favourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = null,
+                tint = if (favourite) accent else Color.White,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+        ActionCircle("Use this frame as thumbnail", onThumbnail) {
+            GlyphIcon(Glyph.IMAGE, Color.White, size = 19.dp)
+        }
+        ActionChip(Glyph.SPEED, PlayerFormat.speed(speed), accent, "Playback speed", onSpeed)
+        ActionChip(
+            when (end) {
+                EndBehavior.LOOP -> Glyph.REPEAT
+                EndBehavior.NEXT -> Glyph.NEXT
+                EndBehavior.STOP -> Glyph.STOP
+            },
+            when (end) {
+                EndBehavior.LOOP -> "Loop"
+                EndBehavior.NEXT -> "Next"
+                EndBehavior.STOP -> "Stop"
+            },
+            accent,
+            "When the video ends",
+            onEnd,
+        )
+    }
+}
+
+@Composable
+private fun ActionCircle(label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Color(0x66101214))
+            .clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+@Composable
+private fun ActionChip(glyph: Glyph, text: String, accent: Color, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .height(30.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .background(Color(0x66101214))
+            .clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics { contentDescription = "$label: $text" }
+            .padding(start = 9.dp, end = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlyphIcon(glyph, accent, size = 15.dp)
+        Spacer(Modifier.width(5.dp))
+        Text(text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    }
 }

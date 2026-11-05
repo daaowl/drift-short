@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Small stroke icons that are not in the core Material icon set, drawn on a 24-unit grid. */
-enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK }
+enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK, INFO, SPEED, REPEAT, NEXT, STOP }
 
 @Composable
 fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
@@ -78,6 +78,32 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = 
                 drawArc(tint, 180f, 180f, false, p(8f, 4f), Size(8f * u, 10f * u), style = stroke)
                 drawLine(tint, p(8f, 9f), p(8f, 11f), 2f * u, StrokeCap.Round)
                 drawLine(tint, p(16f, 9f), p(16f, 11f), 2f * u, StrokeCap.Round)
+            }
+            Glyph.INFO -> {
+                drawCircle(tint, 9f * u, p(12f, 12f), style = stroke)
+                drawLine(tint, p(12f, 11f), p(12f, 16.5f), 2.2f * u, StrokeCap.Round)
+                drawCircle(tint, 1.3f * u, p(12f, 7.8f))
+            }
+            Glyph.SPEED -> {
+                drawArc(tint, 150f, 240f, false, p(3.5f, 4.5f), Size(17f * u, 17f * u), style = stroke)
+                drawLine(tint, p(12f, 13f), p(16.2f, 9f), 2f * u, StrokeCap.Round)
+                drawCircle(tint, 1.4f * u, p(12f, 13f))
+            }
+            Glyph.REPEAT -> {
+                val path = Path().apply {
+                    moveTo(5f * u, 11f * u); lineTo(5f * u, 9.5f * u); quadraticBezierTo(5f * u, 7f * u, 7.5f * u, 7f * u); lineTo(18f * u, 7f * u)
+                    moveTo(19f * u, 13f * u); lineTo(19f * u, 14.5f * u); quadraticBezierTo(19f * u, 17f * u, 16.5f * u, 17f * u); lineTo(6f * u, 17f * u)
+                }
+                drawPath(path, tint, style = stroke)
+                drawPath(Path().apply { moveTo(15.5f * u, 4.5f * u); lineTo(18.5f * u, 7f * u); lineTo(15.5f * u, 9.5f * u) }, tint, style = stroke)
+                drawPath(Path().apply { moveTo(8.5f * u, 14.5f * u); lineTo(5.5f * u, 17f * u); lineTo(8.5f * u, 19.5f * u) }, tint, style = stroke)
+            }
+            Glyph.NEXT -> {
+                drawPath(Path().apply { moveTo(6f * u, 6f * u); lineTo(15f * u, 12f * u); lineTo(6f * u, 18f * u); close() }, tint)
+                drawLine(tint, p(18f, 6f), p(18f, 18f), 2.4f * u, StrokeCap.Round)
+            }
+            Glyph.STOP -> {
+                drawRoundRect(tint, p(6.5f, 6.5f), Size(11f * u, 11f * u), CornerRadius(2f * u))
             }
         }
     }

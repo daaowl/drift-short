@@ -28,6 +28,8 @@ class SettingsRepository(private val context: Context) {
     private val kVol = booleanPreferencesKey("gesture_volume")
     private val kIcon = stringPreferencesKey("icon")
     private val kLock = booleanPreferencesKey("lock")
+    private val kInfoStyle = stringPreferencesKey("info_style")
+    private val kPlayerInfo = booleanPreferencesKey("player_info")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -48,6 +50,8 @@ class SettingsRepository(private val context: Context) {
         volumeGesture = p[kVol] ?: true,
         icon = p[kIcon] ?: APP_ICONS.first().id,
         lock = p[kLock] ?: false,
+        infoStyle = enumOf(p[kInfoStyle], InfoStyle.ISLAND),
+        playerInfo = p[kPlayerInfo] ?: true,
         loaded = true,
     )
 
@@ -65,6 +69,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVolumeGesture(on: Boolean) = context.settingsStore.edit { it[kVol] = on }
     suspend fun setIcon(id: String) = context.settingsStore.edit { it[kIcon] = id }
     suspend fun setLock(on: Boolean) = context.settingsStore.edit { it[kLock] = on }
+    suspend fun setInfoStyle(st: InfoStyle) = context.settingsStore.edit { it[kInfoStyle] = st.name }
+    suspend fun setPlayerInfo(on: Boolean) = context.settingsStore.edit { it[kPlayerInfo] = on }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f

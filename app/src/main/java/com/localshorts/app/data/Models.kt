@@ -25,6 +25,9 @@ enum class SortOrder(val label: String) {
 
 enum class TransitionSpeed(val label: String) { SLOW("Slow"), NORMAL("Normal"), FAST("Fast") }
 
+/** How the title and details sit on the player. */
+enum class InfoStyle(val label: String) { CLASSIC("Classic"), ISLAND("Island") }
+
 data class Settings(
     val columns: Int = 2,
     val end: EndBehavior = EndBehavior.LOOP,
@@ -40,6 +43,9 @@ data class Settings(
     val volumeGesture: Boolean = true,
     val icon: String = APP_ICONS.first().id,
     val lock: Boolean = false,
+    val infoStyle: InfoStyle = InfoStyle.ISLAND,
+    /** The player's "i" toggle: shows the action buttons and video details. */
+    val playerInfo: Boolean = true,
     val loaded: Boolean = false,
 )
 

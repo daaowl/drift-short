@@ -7,6 +7,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
@@ -51,6 +52,8 @@ class PlaybackCoordinator(
     val positionMs = MutableStateFlow(0L)
     val durationMs = MutableStateFlow(0L)
     val failed = MutableStateFlow<Set<String>>(emptySet())
+    /** Width x height of the playing video, 0 x 0 until known. */
+    val videoSize = MutableStateFlow(VideoSize.UNKNOWN)
 
     var onEndedNext: (() -> Unit)? = null
     private var backgrounded = false
@@ -90,6 +93,10 @@ class PlaybackCoordinator(
                         EndBehavior.STOP -> playing.value = false // the last frame stays on screen
                         EndBehavior.LOOP -> Unit
                     }
+                }
+
+                override fun onVideoSizeChanged(size: VideoSize) {
+                    if (!released && p === activePlayer()) videoSize.value = size
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -143,6 +150,7 @@ class PlaybackCoordinator(
         }
         if (current.playbackState == Player.STATE_ENDED) current.seekTo(0)
         current.volume = 1f
+        videoSize.value = current.videoSize
         playing.value = true
         holdPaused = false
         current.playWhenReady = !backgrounded
