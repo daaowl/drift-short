@@ -25,6 +25,14 @@ enum class SortOrder(val label: String) {
 
 enum class TransitionSpeed(val label: String) { SLOW("Slow"), NORMAL("Normal"), FAST("Fast") }
 
+/** How a video opens from the grid (and closes back into it). */
+enum class OpenStyle(val label: String, val summary: String) {
+    HOLLOW("Hollow", "Grows out of the tile and fades into the video mid-motion"),
+    YOUTUBE("YouTube style", "Quick solid expand; the cover holds until the video starts"),
+    INSTAGRAM("Instagram style", "Zooms in from the tile while fading in"),
+    TIKTOK("TikTok style", "Slides up from the bottom of the screen"),
+}
+
 /** How the title and details sit on the player. */
 enum class InfoStyle(val label: String) { CLASSIC("Classic"), ISLAND("Island") }
 
@@ -46,6 +54,7 @@ data class Settings(
     val infoStyle: InfoStyle = InfoStyle.ISLAND,
     /** The player's "i" toggle: shows the action buttons and video details. */
     val playerInfo: Boolean = true,
+    val openStyle: OpenStyle = OpenStyle.HOLLOW,
     val loaded: Boolean = false,
 )
 

@@ -36,15 +36,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -120,6 +116,10 @@ fun GalleryScreen(
         activity.suppressNextLock = true
         pick.launch(null)
     }
+
+    var popover by remember { mutableStateOf<Popover?>(null) }
+    var folderBounds by remember { mutableStateOf(Rect.Zero) }
+    var sortBounds by remember { mutableStateOf(Rect.Zero) }
 
     // Header slides away while scrolling down the feed and comes back on the way up
     var headerPx by remember { mutableIntStateOf(0) }
@@ -214,15 +214,39 @@ fun GalleryScreen(
                     onDone = { focus.clearFocus() },
                     modifier = Modifier.weight(1f),
                 )
-                FolderMenu(
-                    folders = settings.folders,
-                    active = settings.activeFolder,
-                    unavailable = unavailable,
-                    accent = accent,
-                    onSelect = { vm.setActiveFolder(it) },
-                    onAdd = addFolder,
-                    onRefresh = { vm.refresh() },
-                )
+                Box(Modifier.onGloballyPositioned { folderBounds = it.boundsInRoot() }) {
+                    IconButton(onClick = {
+                        popover = Popover(folderBounds) { dismiss ->
+                            PopoverLabel("Folders")
+                            PopoverItem("All folders", checked = settings.activeFolder.isEmpty(), onClick = {
+                                vm.setActiveFolder("")
+                                dismiss()
+                            })
+                            settings.folders.forEach { f ->
+                                val lost = f.uri in unavailable
+                                PopoverItem(
+                                    if (lost) "${f.name} (no access)" else f.name,
+                                    checked = settings.activeFolder == f.uri,
+                                    onClick = {
+                                        vm.setActiveFolder(f.uri)
+                                        dismiss()
+                                    },
+                                )
+                            }
+                            PopoverDivider()
+                            PopoverItem("Add folder", leading = { Icon(Icons.Default.Add, null, tint = Hc.Ink, modifier = Modifier.size(18.dp)) }, onClick = {
+                                dismiss()
+                                addFolder()
+                            })
+                            PopoverItem("Refresh", leading = { Icon(Icons.Default.Refresh, null, tint = Hc.Ink, modifier = Modifier.size(18.dp)) }, onClick = {
+                                dismiss()
+                                vm.refresh()
+                            })
+                        }
+                    }) {
+                        GlyphIcon(Glyph.FOLDER, if (settings.activeFolder.isNotEmpty()) accent else Hc.Ink)
+                    }
+                }
                 IconButton(onClick = onSettings) {
                     Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Hc.Ink)
                 }
@@ -237,9 +261,23 @@ fun GalleryScreen(
                 TabPill("Oldest", !fav && settings.sort == SortOrder.OLDEST, accent) { vm.setView(false, SortOrder.OLDEST) }
                 TabPill("Favourites", fav, accent) { vm.setView(true, settings.sort) }
                 Spacer(Modifier.weight(1f))
-                SortMenu(settings.sort, accent) { vm.setView(settings.favouritesOnly, it) }
+                Box(Modifier.onGloballyPositioned { sortBounds = it.boundsInRoot() }) {
+                    SortButton(settings.sort, accent) {
+                        popover = Popover(sortBounds) { dismiss ->
+                            PopoverLabel("Sort by")
+                            SortOrder.values().forEach { o ->
+                                PopoverItem(o.label, checked = o == settings.sort, onClick = {
+                                    vm.setView(settings.favouritesOnly, o)
+                                    dismiss()
+                                })
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        PopoverLayer(popover) { popover = null }
 
         // Status bar scrim so content never shows behind the clock
         Box(
@@ -285,76 +323,19 @@ private fun SearchField(query: String, accent: Color, onChange: (String) -> Unit
 }
 
 @Composable
-private fun FolderMenu(
-    folders: List<com.localshorts.app.data.Folder>,
-    active: String,
-    unavailable: Set<String>,
-    accent: Color,
-    onSelect: (String) -> Unit,
-    onAdd: () -> Unit,
-    onRefresh: () -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }) {
-            GlyphIcon(Glyph.FOLDER, if (active.isNotEmpty()) accent else Hc.Ink)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Hc.Surface)) {
-            MenuRow("All folders", checked = active.isEmpty(), accent = accent) { onSelect(""); open = false }
-            folders.forEach { f ->
-                val lost = f.uri in unavailable
-                MenuRow(
-                    if (lost) "${f.name} (no access)" else f.name,
-                    checked = active == f.uri,
-                    accent = accent,
-                ) { onSelect(f.uri); open = false }
-            }
-            HorizontalDivider(color = Color(0x22FFFFFF))
-            DropdownMenuItem(
-                text = { Text("Add folder", color = Hc.Ink) },
-                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = Hc.Ink) },
-                onClick = { open = false; onAdd() },
-            )
-            DropdownMenuItem(
-                text = { Text("Refresh", color = Hc.Ink) },
-                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = Hc.Ink) },
-                onClick = { open = false; onRefresh() },
-            )
-        }
-    }
-}
-
-@Composable
-private fun SortMenu(sort: SortOrder, accent: Color, onPick: (SortOrder) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+private fun SortButton(sort: SortOrder, accent: Color, onClick: () -> Unit) {
     val custom = sort == SortOrder.NAME || sort == SortOrder.MOST_WATCHED
-    Box {
-        Row(
-            Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { open = true }
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GlyphIcon(Glyph.SORT, if (custom) accent else Hc.Mute, size = 18.dp)
-            Spacer(Modifier.width(4.dp))
-            Text(sort.label, color = if (custom) accent else Hc.Mute, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Hc.Surface)) {
-            SortOrder.values().forEach { o ->
-                MenuRow(o.label, checked = o == sort, accent = accent) { onPick(o); open = false }
-            }
-        }
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlyphIcon(Glyph.SORT, if (custom) accent else Hc.Mute, size = 18.dp)
+        Spacer(Modifier.width(4.dp))
+        Text(sort.label, color = if (custom) accent else Hc.Mute, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
-}
-
-@Composable
-private fun MenuRow(label: String, checked: Boolean, accent: Color, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(label, color = if (checked) accent else Hc.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        trailingIcon = { if (checked) Icon(Icons.Default.Check, contentDescription = "Selected", tint = accent) },
-        onClick = onClick,
-    )
 }
 
 @Composable

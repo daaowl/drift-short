@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Small stroke icons that are not in the core Material icon set, drawn on a 24-unit grid. */
-enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK, INFO, SPEED, REPEAT, NEXT, STOP }
+enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK, INFO, SPEED, REPEAT, NEXT, STOP, PALETTE, PLAY, HAND }
 
 @Composable
 fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
@@ -101,6 +101,22 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = 
             Glyph.NEXT -> {
                 drawPath(Path().apply { moveTo(6f * u, 6f * u); lineTo(15f * u, 12f * u); lineTo(6f * u, 18f * u); close() }, tint)
                 drawLine(tint, p(18f, 6f), p(18f, 18f), 2.4f * u, StrokeCap.Round)
+            }
+            Glyph.PALETTE -> {
+                drawCircle(tint, 8.5f * u, p(12f, 12f), style = stroke)
+                drawCircle(tint, 1.5f * u, p(8.5f, 10f))
+                drawCircle(tint, 1.5f * u, p(12f, 7.8f))
+                drawCircle(tint, 1.5f * u, p(15.5f, 10f))
+                drawCircle(tint, 1.5f * u, p(14.5f, 14.5f))
+            }
+            Glyph.PLAY -> {
+                drawRoundRect(tint, p(3.5f, 5f), Size(17f * u, 14f * u), CornerRadius(3f * u), style = stroke)
+                drawPath(Path().apply { moveTo(10.2f * u, 9f * u); lineTo(15f * u, 12f * u); lineTo(10.2f * u, 15f * u); close() }, tint)
+            }
+            Glyph.HAND -> {
+                drawLine(tint, p(12f, 4f), p(12f, 20f), 2f * u, StrokeCap.Round)
+                drawPath(Path().apply { moveTo(8.5f * u, 7.5f * u); lineTo(12f * u, 4f * u); lineTo(15.5f * u, 7.5f * u) }, tint, style = stroke)
+                drawPath(Path().apply { moveTo(8.5f * u, 16.5f * u); lineTo(12f * u, 20f * u); lineTo(15.5f * u, 16.5f * u) }, tint, style = stroke)
             }
             Glyph.STOP -> {
                 drawRoundRect(tint, p(6.5f, 6.5f), Size(11f * u, 11f * u), CornerRadius(2f * u))

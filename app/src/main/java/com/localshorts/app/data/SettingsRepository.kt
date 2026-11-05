@@ -30,6 +30,7 @@ class SettingsRepository(private val context: Context) {
     private val kLock = booleanPreferencesKey("lock")
     private val kInfoStyle = stringPreferencesKey("info_style")
     private val kPlayerInfo = booleanPreferencesKey("player_info")
+    private val kOpenStyle = stringPreferencesKey("open_style")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -52,6 +53,7 @@ class SettingsRepository(private val context: Context) {
         lock = p[kLock] ?: false,
         infoStyle = enumOf(p[kInfoStyle], InfoStyle.ISLAND),
         playerInfo = p[kPlayerInfo] ?: true,
+        openStyle = enumOf(p[kOpenStyle], OpenStyle.HOLLOW),
         loaded = true,
     )
 
@@ -71,6 +73,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLock(on: Boolean) = context.settingsStore.edit { it[kLock] = on }
     suspend fun setInfoStyle(st: InfoStyle) = context.settingsStore.edit { it[kInfoStyle] = st.name }
     suspend fun setPlayerInfo(on: Boolean) = context.settingsStore.edit { it[kPlayerInfo] = on }
+    suspend fun setOpenStyle(st: OpenStyle) = context.settingsStore.edit { it[kOpenStyle] = st.name }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f

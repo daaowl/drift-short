@@ -3,6 +3,7 @@ package com.localshorts.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.localshorts.app.MainActivity
 import com.localshorts.app.MainViewModel
+import com.localshorts.app.data.OpenStyle
 import com.localshorts.app.data.VideoItem
 import com.localshorts.app.ui.player.PlayerScreen
 import kotlinx.coroutines.flow.first
@@ -50,8 +52,29 @@ import kotlin.math.roundToInt
 private class PlayerSession(val list: List<VideoItem>, val start: Int, val from: Rect?)
 
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-private const val OPEN_MS = 420
-private const val CLOSE_MS = 340
+private val Standard = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
+private val Decelerate = CubicBezierEasing(0f, 0f, 0.2f, 1f)
+
+/** Timing and look of each opening style. Closing plays the same motion in reverse. */
+private class Motion(
+    val openMs: Int,
+    val closeMs: Int,
+    val easing: Easing,
+    /** How far into the open the cover may fade to the real video (once a frame is drawn). */
+    val revealAt: Float,
+    val revealMs: Int,
+    val growFromTile: Boolean,
+    val fadeIn: Boolean,
+    val tileRadiusDp: Float,
+    val bulgeRadiusDp: Float,
+)
+
+private fun motionFor(style: OpenStyle) = when (style) {
+    OpenStyle.HOLLOW -> Motion(420, 340, Emphasized, 0.45f, 170, growFromTile = true, fadeIn = false, tileRadiusDp = 0f, bulgeRadiusDp = 20f)
+    OpenStyle.YOUTUBE -> Motion(300, 250, Standard, 1f, 120, growFromTile = true, fadeIn = false, tileRadiusDp = 12f, bulgeRadiusDp = 0f)
+    OpenStyle.INSTAGRAM -> Motion(280, 230, Decelerate, 0.6f, 140, growFromTile = true, fadeIn = true, tileRadiusDp = 6f, bulgeRadiusDp = 0f)
+    OpenStyle.TIKTOK -> Motion(320, 260, Decelerate, 0.9f, 140, growFromTile = false, fadeIn = false, tileRadiusDp = 0f, bulgeRadiusDp = 0f)
+}
 
 /**
  * The gallery always stays composed underneath the player and settings, so its scroll position,
@@ -140,15 +163,17 @@ private fun PlayerHost(
     val density = LocalDensity.current
     val thumbVersion by vm.thumbVersion.collectAsState()
     val cover = rememberCover(coverVideo, vm.thumbs, thumbVersion)
+    // Style is fixed for the life of this player so an open and its close always match
+    val motion = remember { motionFor(vm.settings.value.openStyle) }
 
     LaunchedEffect(Unit) {
         launch {
-            progress.animateTo(1f, tween(OPEN_MS, easing = Emphasized))
+            progress.animateTo(1f, tween(motion.openMs, easing = motion.easing))
             entered = true
             onCovering(true)
         }
-        snapshotFlow { startRendered && progress.value >= 0.45f }.first { it }
-        coverAlpha.animateTo(0f, tween(170))
+        snapshotFlow { startRendered && progress.value >= motion.revealAt - 0.001f }.first { it }
+        coverAlpha.animateTo(0f, tween(motion.revealMs))
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -174,7 +199,7 @@ private fun PlayerHost(
                 }
                 target = if (visible) bounds[currentId] else null
                 coverAlpha.animateTo(1f, tween(120))
-                progress.animateTo(0f, tween(CLOSE_MS, easing = Emphasized))
+                progress.animateTo(0f, tween(motion.closeMs, easing = motion.easing))
                 onDone()
             }
         }
@@ -192,6 +217,12 @@ private fun PlayerHost(
                 .fillMaxSize()
                 .graphicsLayer {
                     val t = progress.value
+                    if (!motion.growFromTile) {
+                        // Slide up from the bottom edge, full size
+                        translationY = (1f - t) * h
+                        clip = false
+                        return@graphicsLayer
+                    }
                     val r = from()
                     val s0 = (r.width / w).coerceAtLeast(0.01f)
                     val h0 = r.height / s0 // visible content height at t = 0, in content space
@@ -203,7 +234,9 @@ private fun PlayerHost(
                     scaleY = s
                     translationX = cx - full.center.x
                     translationY = cy - full.center.y
-                    val radius = with(density) { 20.dp.toPx() } * 4f * t * (1f - t) / s
+                    if (motion.fadeIn) alpha = (t / 0.55f).coerceIn(0f, 1f)
+                    val px = with(density) { 1.dp.toPx() }
+                    val radius = (motion.tileRadiusDp * (1f - t) + motion.bulgeRadiusDp * 4f * t * (1f - t)) * px / s
                     clip = true
                     shape = CenterBandShape(visibleH, radius)
                 },
@@ -229,7 +262,7 @@ private fun PlayerHost(
                             val t = progress.value
                             val r = from()
                             val s0 = (r.width / w).coerceAtLeast(0.01f)
-                            val bandH = lerp(r.height / s0, h, t).roundToInt().coerceAtLeast(1)
+                            val bandH = (if (motion.growFromTile) lerp(r.height / s0, h, t) else h).roundToInt().coerceAtLeast(1)
                             val p = measurable.measure(
                                 constraints.copy(minWidth = constraints.maxWidth, minHeight = bandH, maxHeight = bandH),
                             )

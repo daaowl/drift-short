@@ -50,8 +50,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -73,6 +71,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -112,6 +113,10 @@ import com.localshorts.app.player.PlaybackCoordinator
 import com.localshorts.app.ui.Glyph
 import com.localshorts.app.ui.GlyphIcon
 import com.localshorts.app.ui.Hc
+import com.localshorts.app.ui.Popover
+import com.localshorts.app.ui.PopoverItem
+import com.localshorts.app.ui.PopoverLabel
+import com.localshorts.app.ui.PopoverLayer
 import com.localshorts.app.ui.LocalAccent
 import com.localshorts.app.ui.VideoTextShadow
 import com.localshorts.app.ui.formatTime
@@ -224,14 +229,15 @@ fun PlayerScreen(
     val failed by coordinator.failed.collectAsState()
     val paused = !playing
 
-    var menuOpen by remember { mutableStateOf(false) }
-    var speedOpen by remember { mutableStateOf(false) }
+    var popover by remember { mutableStateOf<Popover?>(null) }
+    var dotsBounds by remember { mutableStateOf(Rect.Zero) }
+    var speedBounds by remember { mutableStateOf(Rect.Zero) }
     var editing by remember { mutableStateOf(false) }
     var editReturnMs by remember { mutableLongStateOf(0L) }
     var scrubbing by remember { mutableStateOf(false) }
     var poke by remember { mutableIntStateOf(0) }
     var controlsShown by remember { mutableStateOf(true) }
-    val keepVisible = paused || menuOpen || speedOpen || scrubbing
+    val keepVisible = paused || popover != null || scrubbing
     LaunchedEffect(keepVisible, poke, entered, dominant) {
         controlsShown = true
         if (!keepVisible) {
@@ -259,8 +265,7 @@ fun PlayerScreen(
                 coordinator.seekToMs(editReturnMs)
                 editing = false
             }
-            speedOpen -> speedOpen = false
-            menuOpen -> menuOpen = false
+            popover != null -> popover = null
             else -> close()
         }
     }
@@ -339,9 +344,8 @@ fun PlayerScreen(
                 .pointerInput(editing) {
                     detectTapGestures(onTap = {
                         if (editing) return@detectTapGestures
-                        if (menuOpen || speedOpen) {
-                            menuOpen = false
-                            speedOpen = false
+                        if (popover != null) {
+                            popover = null
                         } else {
                             coordinator.toggle()
                         }
@@ -391,38 +395,39 @@ fun PlayerScreen(
                     GlyphIcon(Glyph.INFO, if (settings.playerInfo) accent else Color.White, size = 18.dp)
                 }
                 if (current != null) {
-                    Box {
-                        SmallRoundButton(onClick = { menuOpen = true; poke++ }, label = "More") {
-                            GlyphIcon(Glyph.DOTS, Color.White, size = 18.dp)
-                        }
-                        DropdownMenu(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false },
-                            modifier = Modifier.background(Hc.Surface),
+                    Box(Modifier.onGloballyPositioned { dotsBounds = it.boundsInRoot() }) {
+                        SmallRoundButton(
+                            onClick = {
+                                poke++
+                                popover = Popover(dotsBounds) { dismiss ->
+                                    PopoverItem(
+                                        "Choose thumbnail frame\u2026",
+                                        leading = { GlyphIcon(Glyph.IMAGE, Hc.Ink, size = 18.dp) },
+                                        onClick = {
+                                            dismiss()
+                                            editReturnMs = coordinator.positionNow()
+                                            coordinator.pause()
+                                            val o = vm.thumbStore.override(current.id)
+                                            if (o >= 0) coordinator.seekToMs(o)
+                                            editing = true
+                                        },
+                                    )
+                                    if (vm.thumbStore.hasOverride(current.id)) {
+                                        PopoverItem(
+                                            "Reset thumbnail",
+                                            leading = { GlyphIcon(Glyph.REPEAT, Hc.Ink, size = 18.dp) },
+                                            onClick = {
+                                                dismiss()
+                                                vm.resetThumbOverride(current.id)
+                                                Toast.makeText(context, "Thumbnail reset to default", Toast.LENGTH_SHORT).show()
+                                            },
+                                        )
+                                    }
+                                }
+                            },
+                            label = "More",
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Choose thumbnail frame…", color = Hc.Ink) },
-                                leadingIcon = { GlyphIcon(Glyph.IMAGE, Hc.Ink, size = 20.dp) },
-                                onClick = {
-                                    menuOpen = false
-                                    editReturnMs = coordinator.positionNow()
-                                    coordinator.pause()
-                                    val o = vm.thumbStore.override(current.id)
-                                    if (o >= 0) coordinator.seekToMs(o)
-                                    editing = true
-                                },
-                            )
-                            if (vm.thumbStore.hasOverride(current.id)) {
-                                DropdownMenuItem(
-                                    text = { Text("Reset thumbnail to default", color = Hc.Ink) },
-                                    leadingIcon = { GlyphIcon(Glyph.REPEAT, Hc.Ink, size = 20.dp) },
-                                    onClick = {
-                                        menuOpen = false
-                                        vm.resetThumbOverride(current.id)
-                                        Toast.makeText(context, "Thumbnail reset to default", Toast.LENGTH_SHORT).show()
-                                    },
-                                )
-                            }
+                            GlyphIcon(Glyph.DOTS, Color.White, size = 18.dp)
                         }
                     }
                 }
@@ -470,7 +475,18 @@ fun PlayerScreen(
                                 vm.setThumbOverride(current.id, ms)
                                 Toast.makeText(context, "Thumbnail set at ${formatTime(ms)}", Toast.LENGTH_SHORT).show()
                             },
-                            onSpeed = { speedOpen = true; poke++ },
+                            onSpeedBounds = { speedBounds = it },
+                            onSpeed = {
+                                poke++
+                                popover = Popover(speedBounds, above = true) { dismiss ->
+                                    PopoverLabel("Playback speed")
+                                    SpeedGrid(coordinator.speed, accent) {
+                                        coordinator.speed = it
+                                        vm.setSpeed(it)
+                                        dismiss()
+                                    }
+                                }
+                            },
                             onEnd = {
                                 val all = EndBehavior.values()
                                 vm.setEnd(all[(settings.end.ordinal + 1) % all.size])
@@ -538,19 +554,6 @@ fun PlayerScreen(
             }
         }
 
-        if (speedOpen) {
-            SpeedPanel(
-                current = coordinator.speed,
-                accent = accent,
-                onPick = {
-                    coordinator.speed = it
-                    vm.setSpeed(it)
-                    speedOpen = false
-                },
-                onDismiss = { speedOpen = false },
-            )
-        }
-
         if (editing && current != null) {
             ThumbnailEditor(
                 coordinator = coordinator,
@@ -572,6 +575,8 @@ fun PlayerScreen(
                 },
             )
         }
+
+        PopoverLayer(popover) { popover = null }
 
         // Swallow input while the open/close animation runs
         if (!entered || closing) {
@@ -781,45 +786,26 @@ private fun SeekBar(
 }
 
 @Composable
-private fun SpeedPanel(current: Float, accent: Color, onPick: (Float) -> Unit, onDismiss: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color(0x55000000))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Hc.Surface)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                .padding(16.dp),
-        ) {
-            Text("Playback speed", color = Hc.Mute, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(12.dp))
-            SPEEDS.chunked(3).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { s ->
-                        val on = s == current
-                        Text(
-                            speedLabel(s),
-                            color = if (on) onAccent(accent) else Hc.Ink,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (on) accent else Hc.Surface2)
-                                .clickable { onPick(s) }
-                                .padding(vertical = 12.dp),
-                        )
-                    }
+private fun SpeedGrid(current: Float, accent: Color, onPick: (Float) -> Unit) {
+    Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 6.dp, top = 2.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SPEEDS.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { v ->
+                    val on = v == current
+                    Text(
+                        PlayerFormat.speed(v),
+                        color = if (on) onAccent(accent) else Hc.Ink,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .width(58.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (on) accent else Color(0x14FFFFFF))
+                            .clickable { onPick(v) }
+                            .padding(vertical = 9.dp),
+                    )
                 }
-                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -925,6 +911,7 @@ private fun ActionStack(
     onFavourite: () -> Unit,
     onThumbnail: () -> Unit,
     onSpeed: () -> Unit,
+    onSpeedBounds: (Rect) -> Unit,
     onEnd: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -939,7 +926,9 @@ private fun ActionStack(
         ActionCircle("Use this frame as thumbnail", onThumbnail) {
             GlyphIcon(Glyph.IMAGE, Color.White, size = 19.dp)
         }
-        ActionChip(Glyph.SPEED, PlayerFormat.speed(speed), accent, "Playback speed", onSpeed)
+        Box(Modifier.onGloballyPositioned { onSpeedBounds(it.boundsInRoot()) }) {
+            ActionChip(Glyph.SPEED, PlayerFormat.speed(speed), accent, "Playback speed", onSpeed)
+        }
         ActionChip(
             when (end) {
                 EndBehavior.LOOP -> Glyph.REPEAT

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.localshorts.app.data.EndBehavior
 import com.localshorts.app.data.Folder
 import com.localshorts.app.data.InfoStyle
+import com.localshorts.app.data.OpenStyle
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.SortOrder
 import com.localshorts.app.data.ThumbMode
@@ -101,6 +102,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setLock(on: Boolean) = viewModelScope.launch { hollow.settings.setLock(on) }
     fun setInfoStyle(st: InfoStyle) = viewModelScope.launch { hollow.settings.setInfoStyle(st) }
     fun setPlayerInfo(on: Boolean) = viewModelScope.launch { hollow.settings.setPlayerInfo(on) }
+    fun setOpenStyle(st: OpenStyle) = viewModelScope.launch { hollow.settings.setOpenStyle(st) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
 
