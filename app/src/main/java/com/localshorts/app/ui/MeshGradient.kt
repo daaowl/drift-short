@@ -19,13 +19,14 @@ import kotlin.math.sin
 data class MeshPalette(val base: Color, val blobs: List<Color>)
 
 val RavePalette = MeshPalette(
-    base = Color(0xFF5B3DB0),
+    base = Color(0xFF281C50),
     blobs = listOf(
-        Color(0xFFF0559E), // hot rose, top left
-        Color(0xFF9B2CF0), // electric violet, right
-        Color(0xFF3D74F2), // bright cobalt, middle left
-        Color(0xFFE08A3C), // warm amber, bottom left
-        Color(0xFF5546F0), // vivid indigo, bottom right
+        Color(0xFFC24A88), // dusty rose, top
+        Color(0xFF8A2EC8), // violet, upper right
+        Color(0xFF3A62CC), // cobalt, middle left
+        Color(0xFF6E2CA6), // plum, right
+        Color(0xFF94582E), // smoky amber, bottom left
+        Color(0xFF4436B4), // indigo, bottom right
     ),
 )
 
@@ -48,11 +49,12 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
         drawRect(palette.base)
         // (x, y, radius) as fractions of the screen, each wobbling on its own slow orbit
         val spots = listOf(
-            Triple(0.18f + 0.06f * cos(t), 0.12f + 0.04f * sin(t), 0.85f),
-            Triple(0.95f + 0.05f * sin(t * 0.8f), 0.30f + 0.06f * cos(t * 0.7f), 0.70f),
-            Triple(0.10f + 0.05f * sin(t * 0.9f), 0.55f + 0.05f * cos(t), 0.65f),
-            Triple(0.05f + 0.06f * cos(t * 0.6f), 0.95f + 0.03f * sin(t * 1.1f), 0.70f),
-            Triple(0.90f + 0.04f * cos(t * 1.2f), 0.85f + 0.05f * sin(t * 0.5f), 0.75f),
+            Triple(0.30f + 0.05f * cos(t), 0.04f + 0.03f * sin(t), 0.55f),
+            Triple(1.00f + 0.04f * sin(t * 0.8f), 0.22f + 0.05f * cos(t * 0.7f), 0.55f),
+            Triple(0.05f + 0.05f * sin(t * 0.9f), 0.50f + 0.05f * cos(t), 0.50f),
+            Triple(0.95f + 0.04f * cos(t * 0.7f), 0.62f + 0.04f * sin(t * 0.9f), 0.45f),
+            Triple(0.00f + 0.05f * cos(t * 0.6f), 0.98f + 0.03f * sin(t * 1.1f), 0.60f),
+            Triple(1.00f + 0.04f * cos(t * 1.2f), 1.00f + 0.04f * sin(t * 0.5f), 0.55f),
         )
         spots.forEachIndexed { i, (fx, fy, fr) ->
             val c = palette.blobs[i % palette.blobs.size]
@@ -70,13 +72,5 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
                 center = center,
             )
         }
-        // a soft central haze ties the colours together
-        drawRect(
-            Brush.radialGradient(
-                listOf(Color(0x40FFFFFF), Color.Transparent),
-                center = Offset(w * 0.45f, h * 0.38f),
-                radius = maxOf(w, h) * 0.45f,
-            ),
-        )
     }
 }
