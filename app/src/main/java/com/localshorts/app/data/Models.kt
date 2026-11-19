@@ -105,11 +105,11 @@ data class AppIcon(val id: String, val label: String, val alias: String, val dra
 
 val APP_ICONS: List<AppIcon> = listOf(
     // Ids and alias names stay fixed across versions so an icon chosen earlier never disappears
-    AppIcon("hollow", "Hollow", "com.localshorts.app.IconHollow", "logo_hollow"),
-    AppIcon("stack", "Ink", "com.localshorts.app.IconStack", "logo_stack"),
-    AppIcon("orbit", "Paper", "com.localshorts.app.IconOrbit", "logo_orbit"),
-    AppIcon("mono", "Neon", "com.localshorts.app.IconMono", "logo_mono"),
-    AppIcon("prism", "Lens", "com.localshorts.app.IconPrism", "logo_prism"),
+    AppIcon("hollow", "Rave", "com.localshorts.app.IconHollow", "logo_hollow"),
+    AppIcon("stack", "Sunset", "com.localshorts.app.IconStack", "logo_stack"),
+    AppIcon("orbit", "Ocean", "com.localshorts.app.IconOrbit", "logo_orbit"),
+    AppIcon("mono", "Noir", "com.localshorts.app.IconMono", "logo_mono"),
+    AppIcon("prism", "Aurora", "com.localshorts.app.IconPrism", "logo_prism"),
 )
 
 val SPEEDS: List<Float> = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.25f)
