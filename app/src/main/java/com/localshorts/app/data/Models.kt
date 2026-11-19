@@ -34,6 +34,13 @@ enum class OpenStyle(val label: String, val summary: String) {
     TIKTOK("TikTok", "A quick, springy expand from the tile"),
 }
 
+/** Shape of the grid tiles. */
+enum class TileShape(val label: String, val ratio: Float) {
+    TALL("Tall", 9f / 16f),
+    CLASSIC("Classic", 3f / 4f),
+    SQUARE("Square", 1f),
+}
+
 /** How the title and details sit on the player. */
 enum class InfoStyle(val label: String) { CLASSIC("Classic"), ISLAND("Island") }
 
@@ -56,6 +63,7 @@ data class Settings(
     /** The player's "i" toggle: shows the action buttons and video details. */
     val playerInfo: Boolean = true,
     val openStyle: OpenStyle = OpenStyle.HOLLOW,
+    val tileShape: TileShape = TileShape.TALL,
     val loaded: Boolean = false,
 )
 
@@ -72,11 +80,12 @@ val ACCENTS: List<Pair<String, Long>> = listOf(
 data class AppIcon(val id: String, val label: String, val alias: String, val drawableName: String)
 
 val APP_ICONS: List<AppIcon> = listOf(
+    // Ids and alias names stay fixed across versions so an icon chosen earlier never disappears
     AppIcon("hollow", "Hollow", "com.localshorts.app.IconHollow", "logo_hollow"),
-    AppIcon("stack", "Stack", "com.localshorts.app.IconStack", "logo_stack"),
-    AppIcon("orbit", "Orbit", "com.localshorts.app.IconOrbit", "logo_orbit"),
-    AppIcon("mono", "Mono", "com.localshorts.app.IconMono", "logo_mono"),
-    AppIcon("prism", "Prism", "com.localshorts.app.IconPrism", "logo_prism"),
+    AppIcon("stack", "Ink", "com.localshorts.app.IconStack", "logo_stack"),
+    AppIcon("orbit", "Paper", "com.localshorts.app.IconOrbit", "logo_orbit"),
+    AppIcon("mono", "Neon", "com.localshorts.app.IconMono", "logo_mono"),
+    AppIcon("prism", "Lens", "com.localshorts.app.IconPrism", "logo_prism"),
 )
 
 val SPEEDS: List<Float> = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.25f)

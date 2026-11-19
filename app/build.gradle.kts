@@ -11,8 +11,8 @@ android {
         applicationId = "com.localshorts.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.5"
+        versionCode = 10
+        versionName = "1.0"
     }
 
     // Fixed debug key in the repo, so every CI build installs over the previous one.
@@ -53,5 +53,6 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("dev.chrisbanes.haze:haze:0.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

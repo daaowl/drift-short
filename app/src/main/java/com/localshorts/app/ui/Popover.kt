@@ -67,6 +67,7 @@ private val PopoverShape = RoundedCornerShape(22.dp)
 @Composable
 fun PopoverLayer(popover: Popover?, onGone: () -> Unit) {
     if (popover == null) return
+    val haze = LocalHaze.current
     val visible = remember(popover) { MutableTransitionState(false).apply { targetState = true } }
     val dismiss = { visible.targetState = false }
     LaunchedEffect(visible.isIdle, visible.currentState) {
@@ -104,8 +105,7 @@ fun PopoverLayer(popover: Popover?, onGone: () -> Unit) {
                             .widthIn(min = 196.dp, max = 280.dp)
                             .shadow(18.dp, PopoverShape, ambientColor = Color.Black, spotColor = Color.Black)
                             .clip(PopoverShape)
-                            .background(Color(0xE61C1F23))
-                            .border(0.5.dp, Color(0x1FFFFFFF), PopoverShape)
+                            .glass(haze, PopoverShape, tint = Color(0xD91A1C20))
                             // swallow taps inside the card
                             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } }
                             .padding(vertical = 6.dp),

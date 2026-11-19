@@ -1,23 +1,75 @@
 package com.localshorts.app.ui
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.localshorts.app.R
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeChild
 
+/** Hollow's palette: deep warm black, layered charcoal, soft ivory ink. */
 object Hc {
-    val Bg = Color(0xFF15171A)
-    val Surface = Color(0xFF22262B)
-    val Surface2 = Color(0xFF2E3338)
-    val Ink = Color(0xFFE8E6E1)
-    val Mute = Color(0xFF9AA0A4)
+    val Bg = Color(0xFF09090B)
+    val Surface = Color(0xFF151619)
+    val Surface2 = Color(0xFF202227)
+    val Raised = Color(0xFF2A2D33)
+    val Ink = Color(0xFFF3F0EA)
+    val Mute = Color(0xFF8D9198)
+    val Faint = Color(0xFF5E6269)
+    val Hairline = Color(0x17FFFFFF)
+    val Glass = Color(0x99121316)
 }
 
+/** Editorial serif for the wordmark and headlines, geometric sans for everything else. */
+val Serif = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal, FontStyle.Normal),
+    Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
+)
+
+val Sans = FontFamily(
+    Font(R.font.manrope_400, FontWeight.Normal),
+    Font(R.font.manrope_500, FontWeight.Medium),
+    Font(R.font.manrope_600, FontWeight.SemiBold),
+    Font(R.font.manrope_700, FontWeight.Bold),
+    Font(R.font.manrope_800, FontWeight.ExtraBold),
+)
+
+private val base = TextStyle(fontFamily = Sans, letterSpacing = 0.sp)
+
+private val HollowTypography = Typography(
+    displayLarge = base, displayMedium = base, displaySmall = base,
+    headlineLarge = base, headlineMedium = base, headlineSmall = base,
+    titleLarge = base, titleMedium = base, titleSmall = base,
+    bodyLarge = base, bodyMedium = base, bodySmall = base,
+    labelLarge = base, labelMedium = base, labelSmall = base,
+)
+
 val LocalAccent = staticCompositionLocalOf { Color(0xFFE5484D) }
+val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
 
 fun onAccent(accent: Color): Color = if (accent.luminance() > 0.45f) Hc.Bg else Color.White
 
@@ -34,7 +86,34 @@ fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
         onSurfaceVariant = Hc.Mute,
     )
     CompositionLocalProvider(LocalAccent provides accent) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(colorScheme = scheme, typography = HollowTypography, content = content)
+    }
+}
+
+/**
+ * Frosted glass: blurs whatever scrolls underneath (Android 12+), with a dark tint, fine grain and a
+ * hairline edge. On older phones it falls back to the tint alone, which still reads as glass.
+ */
+fun Modifier.glass(state: HazeState?, shape: Shape, tint: Color = Hc.Glass): Modifier {
+    val edge = this.border(0.6.dp, Hc.Hairline, shape)
+    return if (state != null) {
+        edge.hazeChild(state = state, shape = shape, style = HazeStyle(tint = tint, blurRadius = 28.dp, noiseFactor = 0.06f))
+    } else {
+        edge
+    }
+}
+
+/** Gentle spring squeeze while pressed, for anything tappable. */
+fun Modifier.pressScale(interaction: MutableInteractionSource, pressed: Float = 0.96f): Modifier = composed {
+    val isPressed by interaction.collectIsPressedAsState()
+    val s by animateFloatAsState(
+        if (isPressed) pressed else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "press",
+    )
+    graphicsLayer {
+        scaleX = s
+        scaleY = s
     }
 }
 

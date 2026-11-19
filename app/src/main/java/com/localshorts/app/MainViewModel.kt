@@ -8,6 +8,7 @@ import com.localshorts.app.data.EndBehavior
 import com.localshorts.app.data.Folder
 import com.localshorts.app.data.InfoStyle
 import com.localshorts.app.data.OpenStyle
+import com.localshorts.app.data.TileShape
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.SortOrder
 import com.localshorts.app.data.ThumbMode
@@ -38,6 +39,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val scanning: StateFlow<Boolean> = hollow.library.scanning
     val unavailable: StateFlow<Set<String>> = hollow.library.unavailable
     val thumbVersion: StateFlow<Int> = hollow.thumbStore.version
+    /** Every video in every folder, for folder counts and covers. */
+    val library: StateFlow<List<VideoItem>> = hollow.library.videos
 
     val query = MutableStateFlow("")
 
@@ -103,6 +106,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setInfoStyle(st: InfoStyle) = viewModelScope.launch { hollow.settings.setInfoStyle(st) }
     fun setPlayerInfo(on: Boolean) = viewModelScope.launch { hollow.settings.setPlayerInfo(on) }
     fun setOpenStyle(st: OpenStyle) = viewModelScope.launch { hollow.settings.setOpenStyle(st) }
+    fun setTileShape(t: TileShape) = viewModelScope.launch { hollow.settings.setTileShape(t) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
 

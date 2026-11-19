@@ -20,6 +20,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -87,6 +88,7 @@ import com.localshorts.app.data.OpenStyle
 import com.localshorts.app.data.SPEEDS
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.ThumbMode
+import com.localshorts.app.data.TileShape
 import com.localshorts.app.data.TransitionSpeed
 import com.localshorts.app.data.speedLabel
 import kotlin.math.roundToInt
@@ -119,7 +121,10 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
             IconButton(onClick = { if (page != null) page = null else onBack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Hc.Ink)
             }
-            Text(page?.title ?: "Settings", color = Hc.Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                page?.title ?: "Settings",
+                style = TextStyle(fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 30.sp, color = Hc.Ink),
+            )
         }
         AnimatedContent(
             targetState = page,
@@ -266,6 +271,34 @@ private fun Appearance(vm: MainViewModel, s: Settings) {
     Group(padded = true) {
         LabeledControl("Columns") {
             Segmented(listOf("1", "2", "3", "4"), s.columns - 1, accent) { vm.setColumns(it + 1) }
+        }
+        Divider()
+        LabeledControl("Tile shape") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TileShape.values().forEach { t ->
+                    val on = s.tileShape == t
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (on) accent.copy(alpha = 0.14f) else Hc.Surface2)
+                            .then(if (on) Modifier.border(1.5.dp, accent, RoundedCornerShape(14.dp)) else Modifier)
+                            .clickable { vm.setTileShape(t) }
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // A tiny preview of the shape
+                        Box(
+                            Modifier
+                                .height(34.dp)
+                                .aspectRatio(t.ratio)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(if (on) accent else Hc.Mute.copy(alpha = 0.5f)),
+                        )
+                        Text(t.label, color = if (on) accent else Hc.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                    }
+                }
+            }
         }
     }
 }
@@ -484,8 +517,9 @@ private fun Group(padded: Boolean = false, content: @Composable ColumnScope.() -
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(Hc.Surface)
+            .border(0.6.dp, Hc.Hairline, RoundedCornerShape(22.dp))
             .then(if (padded) Modifier.padding(horizontal = 16.dp, vertical = 6.dp) else Modifier),
         content = content,
     )

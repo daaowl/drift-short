@@ -31,6 +31,7 @@ class SettingsRepository(private val context: Context) {
     private val kInfoStyle = stringPreferencesKey("info_style")
     private val kPlayerInfo = booleanPreferencesKey("player_info")
     private val kOpenStyle = stringPreferencesKey("open_style")
+    private val kTileShape = stringPreferencesKey("tile_shape")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -54,6 +55,7 @@ class SettingsRepository(private val context: Context) {
         infoStyle = enumOf(p[kInfoStyle], InfoStyle.ISLAND),
         playerInfo = p[kPlayerInfo] ?: true,
         openStyle = enumOf(p[kOpenStyle], OpenStyle.HOLLOW),
+        tileShape = enumOf(p[kTileShape], TileShape.TALL),
         loaded = true,
     )
 
@@ -74,6 +76,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setInfoStyle(st: InfoStyle) = context.settingsStore.edit { it[kInfoStyle] = st.name }
     suspend fun setPlayerInfo(on: Boolean) = context.settingsStore.edit { it[kPlayerInfo] = on }
     suspend fun setOpenStyle(st: OpenStyle) = context.settingsStore.edit { it[kOpenStyle] = st.name }
+    suspend fun setTileShape(t: TileShape) = context.settingsStore.edit { it[kTileShape] = t.name }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f

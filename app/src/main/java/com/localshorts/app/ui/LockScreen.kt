@@ -39,9 +39,17 @@ fun LockScreen(iconId: String, onUnlock: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(painterResource(logoRes(iconId)), contentDescription = "Hollow", modifier = Modifier.size(64.dp))
+        Image(painterResource(logoRes(iconId)), contentDescription = "Hollow", modifier = Modifier.size(84.dp).clip(RoundedCornerShape(22.dp)))
         Spacer(Modifier.height(18.dp))
-        Text("Hollow is locked", color = Hc.Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Hollow is locked",
+            style = androidx.compose.ui.text.TextStyle(
+                fontFamily = Serif,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                fontSize = 30.sp,
+                color = Hc.Ink,
+            ),
+        )
         Spacer(Modifier.height(28.dp))
         Row(
             Modifier
