@@ -46,6 +46,28 @@ jobs:
           set -o pipefail
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
 
+      - name: Render screenshots
+        id: shots
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew recordPaparazziDebug --no-daemon 2>&1 | tee shots.log
+          grep -E "^e: |FAILED|Exception|What went wrong" shots.log | head -40 || true
+
+      - name: Publish screenshots to the screens branch
+        if: steps.shots.outcome == 'success'
+        shell: bash
+        run: |
+          mkdir -p /tmp/shots
+          cp app/src/test/snapshots/images/*.png /tmp/shots/
+          cd /tmp/shots
+          git init -q
+          git checkout -q -b screens
+          git add .
+          git -c user.name="hollow-ci" -c user.email="ci@users.noreply.github.com" commit -qm "Screens for $GITHUB_SHA"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screens
+
       - name: Report build errors
         if: failure()
         shell: bash

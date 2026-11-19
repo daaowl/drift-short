@@ -439,7 +439,7 @@ fun GalleryScreen(
 // ============================================================== header pieces
 
 @Composable
-private fun Wordmark(accent: Color, modifier: Modifier = Modifier) {
+internal fun Wordmark(accent: Color, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.Bottom) {
         Text(
             "Hollow",
@@ -476,7 +476,7 @@ fun GlassCircle(onClick: () -> Unit, label: String, size: Dp = 42.dp, content: @
 }
 
 @Composable
-private fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit, onClose: () -> Unit, onDone: () -> Unit) {
+internal fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit, onClose: () -> Unit, onDone: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(120)
@@ -521,7 +521,7 @@ private fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit, 
 
 /** Glass track with a softly sliding accent pill under the selected label. */
 @Composable
-private fun FilterControl(
+internal fun FilterControl(
     labels: List<String>,
     selected: Int,
     accent: Color,
@@ -579,7 +579,7 @@ private fun FilterControl(
 
 /** Slow, soft colour light behind the top of the feed. Fades as you scroll away from the top. */
 @Composable
-private fun AmbientGlow(accent: Color, gridState: LazyGridState) {
+internal fun AmbientGlow(accent: Color, gridState: LazyGridState) {
     val drift = rememberInfiniteTransition(label = "glow")
     val a by drift.animateFloat(0f, (Math.PI * 2).toFloat(), infiniteRepeatable(tween(18000, easing = LinearEasing)), label = "glow-a")
     val second = remember(accent) {
@@ -635,10 +635,6 @@ private fun Thumb(
     } else {
         null
     }
-    val small = columns >= 3
-    val shape = RoundedCornerShape(radius)
-    val interaction = remember { MutableInteractionSource() }
-
     // Fade-up entrance for the first tiles of a list
     val enter = remember { Animatable(if (enterDelay >= 0) 0f else 1f) }
     LaunchedEffect(Unit) {
@@ -654,13 +650,44 @@ private fun Thumb(
         if (hadImageAtStart) tween(0) else tween(260),
         label = "img",
     )
+    TileVisual(
+        cover = bmp,
+        strip = strip,
+        name = v.name,
+        columns = columns,
+        ratio = ratio,
+        radius = radius,
+        favourite = favourite,
+        views = views,
+        imageAlpha = { imageAlpha },
+        modifier = modifier.graphicsLayer {
+            alpha = enter.value
+            translationY = (1f - enter.value) * 28.dp.toPx()
+        },
+        onClick = onClick,
+    )
+}
 
+/** The look of one grid tile, separate from loading, so it can be previewed and screenshotted. */
+@Composable
+internal fun TileVisual(
+    cover: android.graphics.Bitmap?,
+    strip: android.graphics.Bitmap?,
+    name: String,
+    columns: Int,
+    ratio: Float,
+    radius: Dp,
+    favourite: Boolean,
+    views: Int,
+    imageAlpha: () -> Float = { 1f },
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+) {
+    val small = columns >= 3
+    val shape = RoundedCornerShape(radius)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
-            .graphicsLayer {
-                alpha = enter.value
-                translationY = (1f - enter.value) * 28.dp.toPx()
-            }
             .pressScale(interaction, 0.955f)
             .fillMaxWidth()
             .aspectRatio(ratio)
@@ -668,14 +695,14 @@ private fun Thumb(
             .background(Hc.Surface)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
-        if (bmp == null && strip == null) Shimmer(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = imageAlpha }) {
+        if (cover == null && strip == null) Shimmer(Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = imageAlpha() }) {
             if (strip != null) {
                 PreviewFlipbook(strip, Modifier.fillMaxSize())
-            } else if (bmp != null) {
+            } else if (cover != null) {
                 Image(
-                    bitmap = bmp.asImageBitmap(),
-                    contentDescription = v.name,
+                    bitmap = cover.asImageBitmap(),
+                    contentDescription = name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -752,7 +779,7 @@ private fun Shimmer(modifier: Modifier) {
 // ============================================================== folder island + panel
 
 @Composable
-private fun FolderIsland(
+internal fun FolderIsland(
     folders: List<Folder>,
     active: String,
     unavailable: Set<String>,
@@ -834,7 +861,7 @@ private fun FolderIsland(
 }
 
 @Composable
-private fun IslandButton(onClick: () -> Unit, label: String, content: @Composable () -> Unit) {
+internal fun IslandButton(onClick: () -> Unit, label: String, content: @Composable () -> Unit) {
     Box(
         Modifier
             .size(44.dp)
@@ -846,7 +873,7 @@ private fun IslandButton(onClick: () -> Unit, label: String, content: @Composabl
 }
 
 @Composable
-private fun IslandPills(
+internal fun IslandPills(
     labels: List<String>,
     selected: Int,
     accent: Color,
@@ -1086,7 +1113,7 @@ private fun MosaicCell(v: VideoItem?, loader: ThumbnailLoader, thumbVersion: Int
 // ============================================================== empty state
 
 @Composable
-private fun EmptyState(
+internal fun EmptyState(
     noFolders: Boolean,
     scanning: Boolean,
     searching: Boolean,
@@ -1136,7 +1163,7 @@ private fun EmptyState(
 
 /** Three softly floating portrait cards with a glow, drawn in code. */
 @Composable
-private fun EmptyArt(accent: Color, busy: Boolean) {
+internal fun EmptyArt(accent: Color, busy: Boolean) {
     val t = rememberInfiniteTransition(label = "empty")
     val float by t.animateFloat(0f, (Math.PI * 2).toFloat(), infiniteRepeatable(tween(if (busy) 1600 else 5200, easing = LinearEasing)), label = "float")
     Canvas(Modifier.size(width = 200.dp, height = 170.dp)) {
