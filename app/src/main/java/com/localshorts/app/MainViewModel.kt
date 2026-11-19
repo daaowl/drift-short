@@ -107,6 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setPlayerInfo(on: Boolean) = viewModelScope.launch { hollow.settings.setPlayerInfo(on) }
     fun setOpenStyle(st: OpenStyle) = viewModelScope.launch { hollow.settings.setOpenStyle(st) }
     fun setTileShape(t: TileShape) = viewModelScope.launch { hollow.settings.setTileShape(t) }
+    fun setPreviews(on: Boolean) = viewModelScope.launch { hollow.settings.setPreviews(on) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
 

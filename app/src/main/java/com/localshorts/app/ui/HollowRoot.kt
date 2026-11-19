@@ -93,12 +93,16 @@ private class Motion(
 )
 
 private fun motionFor(style: OpenStyle) = when (style) {
-    OpenStyle.GOAT -> Motion(380, 320, Emphasized, Emphasized, growFromTile = true, revealAt = 0.1f, fromPreview = true)
     OpenStyle.HOLLOW -> Motion(420, 340, Emphasized, Emphasized, growFromTile = true, revealAt = 0.35f, bulgeRadiusDp = 20f)
     OpenStyle.YOUTUBE -> Motion(460, 420, LinearEasing, LinearEasing, growFromTile = false, revealAt = 0f, dim = 0f)
-    OpenStyle.INSTAGRAM -> Motion(400, 340, IosSpringish, IosSpringish, growFromTile = true, revealAt = 0.35f, tileRadiusDp = 4f, dim = 0.7f, galleryScale = 0.94f)
-    OpenStyle.TIKTOK -> Motion(340, 260, Overshoot, Standard, growFromTile = true, revealAt = 0.35f, tileRadiusDp = 2f)
+    OpenStyle.INSTAGRAM -> Motion(400, 340, IosSpringish, IosSpringish, growFromTile = true, revealAt = 0.35f, dim = 0.7f, galleryScale = 0.94f)
+    OpenStyle.TIKTOK -> Motion(340, 260, Overshoot, Standard, growFromTile = true, revealAt = 0.35f)
 }
+
+private fun Motion.withPreview() = Motion(
+    openMs, closeMs, openEasing, closeEasing, growFromTile, revealAt = 0.1f, fromPreview = true,
+    tileRadiusDp = tileRadiusDp, bulgeRadiusDp = bulgeRadiusDp, dim = dim, galleryScale = galleryScale,
+)
 
 /** Shared between the player host and the gallery, so the gallery can move with the player. */
 private class HostFx {
@@ -205,7 +209,12 @@ private fun PlayerHost(
     fx: HostFx,
     onDone: () -> Unit,
 ) {
-    val motion = remember { motionFor(vm.settings.value.openStyle) }
+    val motion = remember {
+        val s = vm.settings.value
+        // With moving previews on, the tile already shows the video's start, so every grow style
+        // expands that first frame directly instead of blending from a thumbnail
+        motionFor(s.openStyle).let { m -> if (s.previews && m.growFromTile) m.withPreview() else m }
+    }
     val progress = remember { Animatable(0f) }
     val stackAlpha = remember { Animatable(if (motion.growFromTile) 1f else 0f) }
     var entered by remember { mutableStateOf(false) }

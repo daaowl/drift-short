@@ -73,8 +73,8 @@ class ScreensTest {
 
     @Composable
     private fun HomeMock(columns: Int, folders: Int, selected: Int, ratio: Float = 9f / 16f) {
-        val gutter = when (columns) { 1 -> 10.dp; 2 -> 6.dp; 3 -> 4.dp; else -> 3.dp }
-        val radius = when (columns) { 1 -> 22.dp; 2 -> 16.dp; 3 -> 12.dp; else -> 9.dp }
+        val gutter = if (columns == 1) 4.dp else 2.dp
+        val radius = 0.dp
         val covers = remember { List(12) { fakeFrame(it) } }
         val names = listOf("Phonk edits", "Night drives", "Drift", "JDM", "Saved", "Cosplay x cars", "Slowed", "Reverb", "Archive")
         val fs = List(folders) { Folder("uri$it", names[it % names.size]) }
@@ -83,7 +83,7 @@ class ScreensTest {
             AmbientGlow(accent, rememberLazyGridState())
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
-                contentPadding = PaddingValues(start = gutter, end = gutter, top = 150.dp, bottom = 110.dp),
+                contentPadding = PaddingValues(top = 150.dp, bottom = 110.dp),
                 horizontalArrangement = Arrangement.spacedBy(gutter),
                 verticalArrangement = Arrangement.spacedBy(gutter),
                 modifier = Modifier.fillMaxSize(),
@@ -109,7 +109,7 @@ class ScreensTest {
                     GlassCircle(onClick = {}, label = "Settings") { Icon(Icons.Default.Settings, null, tint = Hc.Ink, modifier = Modifier.size(20.dp)) }
                 }
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilterControl(listOf("Latest", "Oldest", "Favourites"), selected = 0, accent = accent, modifier = Modifier.weight(1f, fill = false)) {}
+                    FilterControl(listOf("Latest", "Oldest", "Most watched", "Favourites"), selected = 2, accent = accent, modifier = Modifier.weight(1f, fill = false)) {}
                     Spacer(Modifier.weight(0.01f))
                     Spacer(Modifier.width(10.dp))
                     GlassCircle(onClick = {}, label = "Sort", size = 40.dp) { GlyphIcon(Glyph.SORT, Hc.Ink, size = 19.dp) }

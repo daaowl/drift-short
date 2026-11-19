@@ -109,6 +109,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -186,12 +188,13 @@ fun GalleryScreen(
 
     // Header slides away while scrolling down; the folder island tucks away too
     var headerPx by remember { mutableIntStateOf(0) }
+    var headerFullPx by remember { mutableIntStateOf(0) }
     var headerOffset by remember { mutableFloatStateOf(0f) }
     var islandShown by remember { mutableStateOf(true) }
     val collapse = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                headerOffset = (headerOffset + available.y).coerceIn(-headerPx.toFloat(), 0f)
+                headerOffset = (headerOffset + available.y).coerceIn(-headerFullPx.toFloat(), 0f)
                 if (available.y < -6f) islandShown = false
                 if (available.y > 6f) islandShown = true
                 return Offset.Zero
@@ -213,8 +216,9 @@ fun GalleryScreen(
     val statusTop = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
     val navBottom = WindowInsets.navigationBarsIgnoringVisibility.getBottom(density)
     val cols = settings.columns
-    val gutter = when (cols) { 1 -> 10.dp; 2 -> 6.dp; 3 -> 4.dp; else -> 3.dp }
-    val radius = when (cols) { 1 -> 22.dp; 2 -> 16.dp; 3 -> 12.dp; else -> 9.dp }
+    // Boxy, Shorts-style grid: square corners, hairline gaps, edge to edge
+    val gutter = if (cols == 1) 4.dp else 2.dp
+    val radius = 0.dp
 
     CompositionLocalProvider(LocalHaze provides haze) {
         Box(
@@ -244,9 +248,7 @@ fun GalleryScreen(
                         state = gridState,
                         contentPadding = with(density) {
                             PaddingValues(
-                                start = gutter,
-                                end = gutter,
-                                top = (statusTop + headerPx).toDp() + 4.dp,
+                                top = (statusTop + headerPx).toDp() + 2.dp,
                                 bottom = navBottom.toDp() + 110.dp,
                             )
                         },
@@ -259,7 +261,7 @@ fun GalleryScreen(
                                 v = v,
                                 loader = vm.thumbs,
                                 thumbVersion = thumbVersion,
-                                preview = settings.openStyle == OpenStyle.GOAT,
+                                preview = settings.previews,
                                 warmStart = settings.openStyle != OpenStyle.YOUTUBE,
                                 columns = cols,
                                 ratio = if (cols == 1 && settings.tileShape.ratio < 0.7f) 4f / 5f else settings.tileShape.ratio,
@@ -285,7 +287,10 @@ fun GalleryScreen(
                 Modifier
                     .fillMaxWidth()
                     .graphicsLayer { translationY = headerOffset }
-                    .onSizeChanged { headerPx = it.height - statusTop },
+                    .onSizeChanged {
+                        headerPx = it.height - statusTop
+                        headerFullPx = it.height
+                    },
             ) {
                 val glassAlpha by animateFloatAsState(if (atTop) 0f else 1f, tween(260), label = "header-glass")
                 Box(Modifier.fillMaxWidth()) {
@@ -338,13 +343,14 @@ fun GalleryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val selected = when {
-                                settings.favouritesOnly -> 2
+                                settings.favouritesOnly -> 3
                                 settings.sort == SortOrder.NEWEST -> 0
                                 settings.sort == SortOrder.OLDEST -> 1
+                                settings.sort == SortOrder.MOST_WATCHED -> 2
                                 else -> -1
                             }
                             FilterControl(
-                                labels = listOf("Latest", "Oldest", "Favourites"),
+                                labels = listOf("Latest", "Oldest", "Most watched", "Favourites"),
                                 selected = selected,
                                 accent = accent,
                                 modifier = Modifier.weight(1f, fill = false),
@@ -352,13 +358,14 @@ fun GalleryScreen(
                                 when (i) {
                                     0 -> vm.setView(false, SortOrder.NEWEST)
                                     1 -> vm.setView(false, SortOrder.OLDEST)
+                                    2 -> vm.setView(false, SortOrder.MOST_WATCHED)
                                     else -> vm.setView(true, settings.sort)
                                 }
                             }
                             Spacer(Modifier.weight(0.01f))
                             Spacer(Modifier.width(10.dp))
                             Box(Modifier.onGloballyPositioned { sortBounds = it.boundsInRoot() }) {
-                                val custom = settings.sort == SortOrder.NAME || settings.sort == SortOrder.MOST_WATCHED
+                                val custom = settings.sort == SortOrder.NAME
                                 GlassCircle(
                                     onClick = {
                                         popover = Popover(sortBounds) { dismiss ->
@@ -382,13 +389,15 @@ fun GalleryScreen(
                 }
             }
 
-            // Status bar gets a quiet glass strip once content scrolls, so it never collides with the clock
+            // Once the header has slid away, a soft fade keeps the clock readable without a visible bar
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .windowInsetsTopHeight(WindowInsets.statusBarsIgnoringVisibility)
-                    .graphicsLayer { alpha = if (atTop) 0f else 1f }
-                    .glass(haze, RoundedCornerShape(0.dp), tint = Color(0xCC09090B)),
+                    .height(with(density) { statusTop.toDp() } + 18.dp)
+                    .graphicsLayer {
+                        alpha = if (headerFullPx > 0) (-headerOffset / headerFullPx).coerceIn(0f, 1f) else 0f
+                    }
+                    .background(Brush.verticalGradient(listOf(Color(0xE609090B), Color.Transparent))),
             )
 
             // ---------- folder island ----------
@@ -520,7 +529,7 @@ internal fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit,
     }
 }
 
-/** Glass track with a softly sliding accent pill under the selected label. Segments share one width. */
+/** Glass track with a softly sliding accent pill under the selected label. */
 @Composable
 internal fun FilterControl(
     labels: List<String>,
@@ -534,15 +543,16 @@ internal fun FilterControl(
             .height(40.dp)
             .clip(RoundedCornerShape(20.dp))
             .glass(LocalHaze.current, RoundedCornerShape(20.dp), tint = Color(0x80202227))
+            .horizontalScroll(rememberScrollState())
             .padding(4.dp),
     ) {
-        SlidingSegments(labels, selected, accent, cornerRadius = 16.dp, textSize = 13.5f, inactive = Hc.Mute, padH = 14.dp, onSelect = onSelect)
+        SlidingSegments(labels, selected, accent, cornerRadius = 16.dp, textSize = 13f, inactive = Hc.Mute, padH = 11.dp, onSelect = onSelect)
     }
 }
 
 /**
- * Equal-width segments with an accent pill that glides between them. Widths come from the widest
- * label, so the pill is placed correctly from the very first frame.
+ * Segments sized to their labels, with an accent pill that glides and stretches between them.
+ * Positions are worked out during layout, so the pill sits correctly from the very first frame.
  */
 @Composable
 internal fun SlidingSegments(
@@ -553,32 +563,27 @@ internal fun SlidingSegments(
     textSize: Float,
     inactive: Color,
     padH: Dp,
-    maxSegment: Dp = 160.dp,
+    maxSegment: Dp = 170.dp,
     onSelect: (Int) -> Unit,
 ) {
-    val pos by animateFloatAsState(selected.coerceAtLeast(0).toFloat(), spring(dampingRatio = 0.78f, stiffness = 520f), label = "seg-pos")
+    val pos by animateFloatAsState(selected.coerceAtLeast(0).toFloat(), spring(dampingRatio = 0.8f, stiffness = 520f), label = "seg-pos")
     val pillAlpha by animateFloatAsState(if (selected >= 0) 1f else 0f, tween(180), label = "seg-alpha")
-    Box(Modifier.fillMaxHeight().width(IntrinsicSize.Max)) {
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(1f / labels.size.coerceAtLeast(1))
-                .graphicsLayer {
-                    translationX = size.width * pos
-                    alpha = pillAlpha
-                }
-                .clip(RoundedCornerShape(cornerRadius))
-                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.9f), accent))),
-        )
-        Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+    Layout(
+        modifier = Modifier.fillMaxHeight(),
+        content = {
+            Box(
+                Modifier
+                    .graphicsLayer { alpha = pillAlpha }
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.9f), accent))),
+            )
             labels.forEachIndexed { i, label ->
                 val on = i == selected
                 val color by animateColorAsState(if (on) onAccent(accent) else inactive, tween(220), label = "seg-color")
                 Box(
                     Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
                         .widthIn(max = maxSegment)
+                        .fillMaxHeight()
                         .clip(RoundedCornerShape(cornerRadius))
                         .clickable(onClickLabel = label) { onSelect(i) }
                         .padding(horizontal = padH),
@@ -591,10 +596,25 @@ internal fun SlidingSegments(
                         fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
                     )
                 }
             }
+        },
+    ) { measurables, constraints ->
+        val h = constraints.maxHeight
+        val segs = measurables.drop(1).map { it.measure(Constraints(maxWidth = (maxSegment.toPx()).toInt(), minHeight = h, maxHeight = h)) }
+        val xs = IntArray(segs.size)
+        var x = 0
+        segs.forEachIndexed { i, p -> xs[i] = x; x += p.width }
+        val lo = pos.toInt().coerceIn(0, (segs.size - 1).coerceAtLeast(0))
+        val hi = (lo + 1).coerceAtMost(segs.size - 1)
+        val f = (pos - lo).coerceIn(0f, 1f)
+        val pillX = if (segs.isEmpty()) 0 else (xs[lo] + (xs[hi] - xs[lo]) * f).toInt()
+        val pillW = if (segs.isEmpty()) 0 else (segs[lo].width + (segs[hi].width - segs[lo].width) * f).toInt()
+        val pill = measurables[0].measure(Constraints.fixed(pillW.coerceAtLeast(0), h))
+        layout(x, h) {
+            pill.place(pillX, 0)
+            segs.forEachIndexed { i, p -> p.place(xs[i], 0) }
         }
     }
 }
@@ -903,7 +923,7 @@ internal fun IslandPills(
     onSelect: (Int) -> Unit,
 ) {
     Box(modifier.fillMaxHeight().horizontalScroll(rememberScrollState())) {
-        SlidingSegments(labels, selected, accent, cornerRadius = 22.dp, textSize = 13.5f, inactive = Hc.Ink.copy(alpha = 0.72f), padH = 14.dp, maxSegment = 130.dp, onSelect = onSelect)
+        SlidingSegments(labels, selected, accent, cornerRadius = 22.dp, textSize = 13.5f, inactive = Hc.Ink.copy(alpha = 0.72f), padH = 15.dp, maxSegment = 140.dp, onSelect = onSelect)
     }
 }
 

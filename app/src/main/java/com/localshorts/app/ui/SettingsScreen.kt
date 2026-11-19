@@ -315,6 +315,17 @@ private fun Playback(vm: MainViewModel, s: Settings) {
         }
     }
     Footnote("Closing a video plays the same animation in reverse.")
+    Spacer(Modifier.height(14.dp))
+    Group {
+        SwitchRow(
+            "Moving previews",
+            "Goat's idea: tiles play their first seconds, and every opening grows from that frame",
+            s.previews,
+            accent,
+            padded = true,
+        ) { vm.setPreviews(it) }
+    }
+    Footnote("Works with any opening animation above. Previews are built once per video and then saved.")
 
     Header("Player")
     Group(padded = true) {
