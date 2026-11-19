@@ -86,6 +86,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -215,6 +216,28 @@ fun GalleryScreen(
     // Tiles that appear in the first moments of a list fade up in a short stagger
     val listKey = "${settings.activeFolder}|${settings.favouritesOnly}|${settings.sort}|${query.isNotBlank()}"
     val appearAt = remember(listKey) { System.currentTimeMillis() }
+
+    // A new sort, filter, folder or search starts at the top. The grid otherwise follows the item that
+    // was on screen to wherever it lands in the new order, which can be the very end of the list.
+    var shownKey by rememberSaveable { mutableStateOf(listKey) }
+    var resetPending by remember { mutableStateOf(false) }
+    LaunchedEffect(listKey) {
+        if (listKey != shownKey) {
+            shownKey = listKey
+            resetPending = true
+            gridState.scrollToItem(0)
+            // If the list didn't change at all, don't leave a jump armed for some later rescan
+            delay(800)
+            resetPending = false
+        }
+    }
+    // The new list can arrive a frame after the setting changes; jump again once it does
+    LaunchedEffect(videos) {
+        if (resetPending) {
+            gridState.scrollToItem(0)
+            resetPending = false
+        }
+    }
 
     val statusTop = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
     val navBottom = WindowInsets.navigationBarsIgnoringVisibility.getBottom(density)
