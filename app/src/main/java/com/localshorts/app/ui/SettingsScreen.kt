@@ -370,6 +370,14 @@ private fun Appearance(vm: MainViewModel, s: Settings) {
     Spacer(Modifier.height(10.dp))
     Group {
         SwitchRow("Gaps between tiles", "Thin lines between videos, like 1.0", s.tileGaps, accent, padded = true) { vm.setTileGaps(it) }
+        Divider(inset = 16.dp)
+        SwitchRow(
+            "Jump to top when switching",
+            "Off: changing sort or folder glides along with the video you were on",
+            s.jumpToTop,
+            accent,
+            padded = true,
+        ) { vm.setJumpToTop(it) }
     }
     Footnote("Auto gives every tile its own video's shape and packs the rows so nothing leaves a gap.")
 }

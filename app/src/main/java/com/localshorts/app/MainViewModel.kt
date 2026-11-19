@@ -132,6 +132,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setLook(l: LookStyle) = viewModelScope.launch { hollow.settings.setLook(l) }
     fun setBackdrop(b: Backdrop) = viewModelScope.launch { hollow.settings.setBackdrop(b) }
     fun setTileGaps(on: Boolean) = viewModelScope.launch { hollow.settings.setTileGaps(on) }
+    fun setJumpToTop(on: Boolean) = viewModelScope.launch { hollow.settings.setJumpToTop(on) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
 

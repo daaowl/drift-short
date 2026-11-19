@@ -90,6 +90,8 @@ data class Settings(
     val backdrop: Backdrop = Backdrop.RAVE,
     /** Thin gaps between grid tiles (the 1.0 / 1.1 look). Off = tiles touch. */
     val tileGaps: Boolean = false,
+    /** After a new sort/folder/filter: true jumps to the top; false glides along with the video on screen. */
+    val jumpToTop: Boolean = false,
     val loaded: Boolean = false,
 )
 
