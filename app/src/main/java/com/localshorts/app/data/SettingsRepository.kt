@@ -37,6 +37,16 @@ class SettingsRepository(private val context: Context) {
     private val kBackdrop = stringPreferencesKey("backdrop")
     private val kGaps = booleanPreferencesKey("tile_gaps")
     private val kJump = booleanPreferencesKey("jump_to_top")
+    private val kgPauseMid = booleanPreferencesKey("g_pause_mid")
+    private val kgPauseBand = floatPreferencesKey("g_pause_band")
+    private val kgSkip = booleanPreferencesKey("g_skip")
+    private val kgFav = booleanPreferencesKey("g_fav")
+    private val kgSide = floatPreferencesKey("g_side")
+    private val kgBack = intPreferencesKey("g_back")
+    private val kgFwd = intPreferencesKey("g_fwd")
+    private val kgSeek = booleanPreferencesKey("g_seek")
+    private val kgSeekZone = floatPreferencesKey("g_seek_zone")
+    private val kgSeekRange = intPreferencesKey("g_seek_range")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -67,6 +77,18 @@ class SettingsRepository(private val context: Context) {
         backdrop = enumOf(p[kBackdrop], Backdrop.RAVE),
         tileGaps = p[kGaps] ?: false,
         jumpToTop = p[kJump] ?: false,
+        gestures = Gestures(
+            pauseMiddleOnly = p[kgPauseMid] ?: true,
+            pauseBand = (p[kgPauseBand] ?: 0.5f).coerceIn(0.2f, 0.9f),
+            doubleTapSkip = p[kgSkip] ?: true,
+            doubleTapFavourite = p[kgFav] ?: true,
+            sideZone = (p[kgSide] ?: 0.3f).coerceIn(0.15f, 0.45f),
+            skipBackS = p[kgBack] ?: 5,
+            skipForwardS = p[kgFwd] ?: 5,
+            swipeSeek = p[kgSeek] ?: true,
+            seekZone = (p[kgSeekZone] ?: 0.5f).coerceIn(0.2f, 0.8f),
+            seekRangeS = p[kgSeekRange] ?: 60,
+        ),
         loaded = true,
     )
 
@@ -93,6 +115,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBackdrop(b: Backdrop) = context.settingsStore.edit { it[kBackdrop] = b.name }
     suspend fun setTileGaps(on: Boolean) = context.settingsStore.edit { it[kGaps] = on }
     suspend fun setJumpToTop(on: Boolean) = context.settingsStore.edit { it[kJump] = on }
+    suspend fun setGestures(g: Gestures) = context.settingsStore.edit {
+        it[kgPauseMid] = g.pauseMiddleOnly
+        it[kgPauseBand] = g.pauseBand
+        it[kgSkip] = g.doubleTapSkip
+        it[kgFav] = g.doubleTapFavourite
+        it[kgSide] = g.sideZone
+        it[kgBack] = g.skipBackS
+        it[kgFwd] = g.skipForwardS
+        it[kgSeek] = g.swipeSeek
+        it[kgSeekZone] = g.seekZone
+        it[kgSeekRange] = g.seekRangeS
+    }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f

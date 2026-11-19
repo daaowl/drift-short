@@ -91,6 +91,8 @@ import com.localshorts.app.data.SPEEDS
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.ThumbMode
 import com.localshorts.app.data.TileShape
+import com.localshorts.app.data.SKIP_CHOICES
+import com.localshorts.app.data.SEEK_RANGES
 import com.localshorts.app.data.LookStyle
 import com.localshorts.app.data.Backdrop
 import com.localshorts.app.data.TransitionSpeed
@@ -170,7 +172,13 @@ private fun Home(s: Settings, open: (Page) -> Unit) {
         Page.APPEARANCE -> "${s.look.label} style · ${s.backdrop.label} background · ${ACCENTS.firstOrNull { it.second == s.accent }?.first ?: "Custom"} accent · ${APP_ICONS.firstOrNull { it.id == s.icon }?.label ?: "Hollow"} icon · ${s.columns} columns"
         Page.PLAYBACK -> "${s.openStyle.label} opening · ${endLabel(s.end)} · ${s.transition.label} swipe"
         Page.THUMBNAILS -> "Default frame and custom thumbnails"
-        Page.GESTURES -> listOfNotNull(if (s.brightnessGesture) "Brightness" else null, if (s.volumeGesture) "Volume" else null)
+        Page.GESTURES -> listOfNotNull(
+            if (s.gestures.swipeSeek) "Swipe to seek" else null,
+            if (s.gestures.doubleTapSkip) "Double-tap skip" else null,
+            if (s.gestures.doubleTapFavourite) "Double-tap favourite" else null,
+            if (s.brightnessGesture) "Brightness" else null,
+            if (s.volumeGesture) "Volume" else null,
+        )
             .ifEmpty { listOf("Off") }.joinToString(" · ")
         Page.LIBRARY -> if (s.folders.isEmpty()) "No folders yet" else "${s.folders.size} folder${if (s.folders.size == 1) "" else "s"}"
         Page.PRIVACY -> if (s.lock) "Lock on" else "Lock off"
@@ -513,12 +521,118 @@ private fun Thumbnails(vm: MainViewModel) {
 @Composable
 private fun Gestures(vm: MainViewModel, s: Settings) {
     val accent = LocalAccent.current
-    Group {
-        SwitchRow("Brightness", "Swipe up or down on the left side", s.brightnessGesture, accent, padded = true) { vm.setBrightnessGesture(it) }
-        Divider(inset = 16.dp)
-        SwitchRow("Volume", "Swipe up or down on the right side", s.volumeGesture, accent, padded = true) { vm.setVolumeGesture(it) }
+    var layer by remember { mutableStateOf(GestureLayer.TAP) }
+    // Local copy so the preview follows your finger; saved when you let go
+    var g by remember(s.gestures) { mutableStateOf(s.gestures) }
+    fun save(n: com.localshorts.app.data.Gestures) {
+        g = n
+        vm.setGestures(n)
     }
-    Footnote("Swiping in the middle always changes videos. A side that's turned off changes videos too.")
+
+    Group(padded = true) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Hc.Surface2)
+                    .padding(4.dp),
+            ) {
+                SlidingSegments(
+                    GestureLayer.values().map { it.label },
+                    layer.ordinal,
+                    accent,
+                    cornerRadius = 16.dp,
+                    textSize = 13f,
+                    inactive = Hc.Mute,
+                    padH = 14.dp,
+                ) { layer = GestureLayer.values()[it] }
+            }
+            Spacer(Modifier.height(14.dp))
+            GestureMap(
+                layer = layer,
+                g = g,
+                brightnessOn = s.brightnessGesture,
+                volumeOn = s.volumeGesture,
+                accent = accent,
+                onChange = { g = it },
+                onCommit = { save(it) },
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                when (layer) {
+                    GestureLayer.TAP -> if (g.pauseMiddleOnly) "Drag the white handles to size the pause area" else "A tap anywhere pauses"
+                    GestureLayer.DOUBLE -> if (g.doubleTapSkip) "Drag the handles to size the skip sides" else "Skipping is off"
+                    GestureLayer.SWIPE -> if (g.swipeSeek) "Drag the handle to size the seek area" else "Swipe to seek is off"
+                },
+                color = Hc.Mute,
+                fontSize = 12.sp,
+            )
+        }
+    }
+
+    when (layer) {
+        GestureLayer.TAP -> {
+            Spacer(Modifier.height(10.dp))
+            Group {
+                SwitchRow(
+                    "Pause only from the middle",
+                    "Taps above and below just show the seek bar and details",
+                    g.pauseMiddleOnly,
+                    accent,
+                    padded = true,
+                ) { save(g.copy(pauseMiddleOnly = it)) }
+            }
+        }
+        GestureLayer.DOUBLE -> {
+            Spacer(Modifier.height(10.dp))
+            Group {
+                SwitchRow("Skip on the sides", "Double tap left to go back, right to go ahead. Keep tapping to skip more", g.doubleTapSkip, accent, padded = true) {
+                    save(g.copy(doubleTapSkip = it))
+                }
+                Divider(inset = 16.dp)
+                SwitchRow("Favourite in the middle", "Double tap the middle to add the video to favourites", g.doubleTapFavourite, accent, padded = true) {
+                    save(g.copy(doubleTapFavourite = it))
+                }
+            }
+            if (g.doubleTapSkip) {
+                Header("Skip back")
+                Group(padded = true) {
+                    Box(Modifier.padding(vertical = 10.dp)) {
+                        ChoiceChips(SKIP_CHOICES.map { it to "$it s" }, g.skipBackS, accent) { save(g.copy(skipBackS = it)) }
+                    }
+                }
+                Header("Skip ahead")
+                Group(padded = true) {
+                    Box(Modifier.padding(vertical = 10.dp)) {
+                        ChoiceChips(SKIP_CHOICES.map { it to "$it s" }, g.skipForwardS, accent) { save(g.copy(skipForwardS = it)) }
+                    }
+                }
+            }
+            Footnote("Double tap only waits a split second before a single tap pauses. Turn both off for instant taps.")
+        }
+        GestureLayer.SWIPE -> {
+            Spacer(Modifier.height(10.dp))
+            Group {
+                SwitchRow("Swipe to seek", "Slide sideways near the bottom to move through the video", g.swipeSeek, accent, padded = true) {
+                    save(g.copy(swipeSeek = it))
+                }
+                Divider(inset = 16.dp)
+                SwitchRow("Brightness", "Swipe up or down on the left edge", s.brightnessGesture, accent, padded = true) { vm.setBrightnessGesture(it) }
+                Divider(inset = 16.dp)
+                SwitchRow("Volume", "Swipe up or down on the right edge", s.volumeGesture, accent, padded = true) { vm.setVolumeGesture(it) }
+            }
+            if (g.swipeSeek) {
+                Header("One full swipe moves")
+                Group(padded = true) {
+                    Box(Modifier.padding(vertical = 10.dp)) {
+                        ChoiceChips(SEEK_RANGES, g.seekRangeS, accent) { save(g.copy(seekRangeS = it)) }
+                    }
+                }
+            }
+            Footnote("Swiping up or down in the middle always changes videos. Short clips are covered whole by one swipe.")
+        }
+    }
 }
 
 @Composable

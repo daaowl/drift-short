@@ -52,6 +52,28 @@ enum class Backdrop(val label: String) {
     NONE("None"),
 }
 
+/** Where and how the player reacts to taps and swipes. */
+data class Gestures(
+    /** Single tap pauses only inside the middle band; elsewhere it just shows the controls. */
+    val pauseMiddleOnly: Boolean = true,
+    /** Height of the middle pause band. */
+    val pauseBand: Float = 0.5f,
+    val doubleTapSkip: Boolean = true,
+    val doubleTapFavourite: Boolean = true,
+    /** Width of each side's double-tap skip zone. */
+    val sideZone: Float = 0.3f,
+    val skipBackS: Int = 5,
+    val skipForwardS: Int = 5,
+    val swipeSeek: Boolean = true,
+    /** Height of the bottom area where a sideways swipe seeks. */
+    val seekZone: Float = 0.5f,
+    /** Seconds covered by a full-width swipe; 0 = the whole video. */
+    val seekRangeS: Int = 60,
+)
+
+val SKIP_CHOICES = listOf(5, 10, 15, 30)
+val SEEK_RANGES = listOf(30 to "30 s", 60 to "1 min", 120 to "2 min", 0 to "Whole video")
+
 /** Shape of the grid tiles. */
 enum class TileShape(val label: String, val ratio: Float) {
     /** Each tile takes its own video's shape; rows are packed so nothing leaves a gap. */
@@ -92,6 +114,8 @@ data class Settings(
     val tileGaps: Boolean = false,
     /** After a new sort/folder/filter: true jumps to the top; false glides along with the video on screen. */
     val jumpToTop: Boolean = false,
+    /** Player gestures, all editable on the Gestures page. Zone sizes are fractions of the screen. */
+    val gestures: Gestures = Gestures(),
     val loaded: Boolean = false,
 )
 

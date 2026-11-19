@@ -137,6 +137,8 @@ fun settleSpec(t: TransitionSpeed): AnimationSpec<Float> = when (t) {
 }
 
 private const val HIDE_AFTER_MS = 1250L
+/** Taps on the same side within this window keep adding to a double-tap skip. */
+private const val STREAK_MS = 700L
 private const val SWITCH_AT = 0.53f // hysteresis around the 50% line
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -275,6 +277,64 @@ fun PlayerScreen(
     val audio = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val brightnessOn by rememberUpdatedState(settings.brightnessGesture && !editing)
     val volumeOn by rememberUpdatedState(settings.volumeGesture && !editing)
+    val gest = settings.gestures
+    val seekOn by rememberUpdatedState(gest.swipeSeek && !editing && popover == null && entered && !closing)
+    val seekZone by rememberUpdatedState(gest.seekZone)
+    val seekRangeS by rememberUpdatedState(gest.seekRangeS)
+
+    // Gesture feedback
+    var seekPreview by remember { mutableStateOf<SeekPreview?>(null) }
+    var seekBarBounds by remember { mutableStateOf(Rect.Zero) }
+    var skipFlash by remember { mutableStateOf<SkipFlash?>(null) }
+    var heart by remember { mutableStateOf<HeartPop?>(null) }
+    var fxId by remember { mutableIntStateOf(0) }
+    // Rapid taps on the same side after a double tap keep adding to the skip, YouTube-style
+    var streakSide by remember { mutableIntStateOf(0) }
+    var streakTotal by remember { mutableIntStateOf(0) }
+    var streakAt by remember { mutableLongStateOf(0L) }
+
+    fun skip(side: Int, taps: Int) {
+        val now = System.currentTimeMillis()
+        val step = if (side > 0) gest.skipForwardS else gest.skipBackS
+        val continuing = streakSide == side && now - streakAt < STREAK_MS
+        streakTotal = (if (continuing) streakTotal else 0) + step * taps
+        streakSide = side
+        streakAt = now
+        val dur = coordinator.durationMs.value
+        val target = (coordinator.positionNow() + side * step * taps * 1000L).let { if (dur > 0) it.coerceIn(0L, dur) else it.coerceAtLeast(0L) }
+        coordinator.seekToMs(target)
+        skipFlash = SkipFlash(side, streakTotal, ++fxId)
+    }
+
+    fun sideOf(x: Float, w: Float): Int = when {
+        !gest.doubleTapSkip -> 0
+        x < w * gest.sideZone -> -1
+        x > w * (1f - gest.sideZone) -> 1
+        else -> 0
+    }
+
+    fun singleTap(o: Offset, w: Float, h: Float) {
+        if (popover != null) {
+            popover = null
+            poke++
+            return
+        }
+        val side = sideOf(o.x, w)
+        if (side != 0 && side == streakSide && System.currentTimeMillis() - streakAt < STREAK_MS) {
+            skip(side, 1)
+            return
+        }
+        val top = h * (1f - gest.pauseBand) / 2f
+        val inBand = o.y in top..(h - top)
+        if (!gest.pauseMiddleOnly || inBand) {
+            coordinator.toggle()
+            poke++
+        } else if (controlsShown && coordinator.playing.value) {
+            controlsShown = false
+        } else {
+            poke++
+        }
+    }
 
     Box(
         Modifier
@@ -292,9 +352,15 @@ fun PlayerScreen(
                         down.position.x > w * 0.75f && volumeOn -> 2
                         else -> 0
                     }
-                    if (zone == 0) return@awaitEachGesture
+                    // Sideways swipes in the lower part of the screen seek (but not on the seek bar itself)
+                    val canSeek = seekOn && down.position.y > h * (1f - seekZone) && !seekBarBounds.contains(down.position)
+                    if (zone == 0 && !canSeek) return@awaitEachGesture
                     val slop = viewConfiguration.touchSlop
                     var claimed = false
+                    var seeking = false
+                    var seekStart = 0L
+                    var seekDur = 0L
+                    var seekTarget = 0L
                     var startY = 0f
                     var startValue = 0f
                     while (true) {
@@ -303,8 +369,24 @@ fun PlayerScreen(
                         if (!ch.pressed) break
                         val dx = ch.position.x - down.position.x
                         val dy = ch.position.y - down.position.y
+                        if (seeking) {
+                            ch.consume()
+                            val range = if (seekRangeS <= 0 || seekDur < seekRangeS * 1000L) seekDur else seekRangeS * 1000L
+                            seekTarget = (seekStart + (dx / w) * range).toLong().coerceIn(0L, seekDur)
+                            seekPreview = SeekPreview(seekTarget, seekTarget - seekStart, seekDur)
+                            coordinator.seek(seekTarget.toFloat() / seekDur, exact = false)
+                            continue
+                        }
                         if (!claimed) {
-                            if (abs(dy) > slop && abs(dy) > abs(dx) * 1.2f) {
+                            if (canSeek && abs(dx) > slop && abs(dx) > abs(dy) * 1.2f) {
+                                seekDur = coordinator.durationMs.value
+                                if (seekDur <= 0L) break
+                                seeking = true
+                                seekStart = coordinator.positionNow()
+                                seekTarget = seekStart
+                                scrubbing = true
+                                ch.consume()
+                            } else if (zone != 0 && abs(dy) > slop && abs(dy) > abs(dx) * 1.2f) {
                                 claimed = true
                                 startY = ch.position.y
                                 startValue = if (zone == 1) {
@@ -314,7 +396,7 @@ fun PlayerScreen(
                                         audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
                                 }
                                 ch.consume()
-                            } else if (abs(dx) > slop) {
+                            } else if (abs(dx) > slop || abs(dy) > slop) {
                                 break
                             }
                         } else {
@@ -332,6 +414,12 @@ fun PlayerScreen(
                             }
                         }
                     }
+                    if (seeking) {
+                        coordinator.seek(seekTarget.toFloat() / seekDur, exact = true)
+                        seekPreview = null
+                        scrubbing = false
+                        poke++
+                    }
                 }
             },
     ) {
@@ -343,16 +431,28 @@ fun PlayerScreen(
             flingBehavior = PagerDefaults.flingBehavior(state = pager, snapAnimationSpec = settleSpec(settings.transition)),
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(editing) {
-                    detectTapGestures(onTap = {
-                        if (editing) return@detectTapGestures
-                        if (popover != null) {
-                            popover = null
-                        } else {
-                            coordinator.toggle()
-                        }
-                        poke++
-                    })
+                .pointerInput(editing, gest) {
+                    val w = size.width.toFloat()
+                    val h = size.height.toFloat()
+                    val double = gest.doubleTapSkip || gest.doubleTapFavourite
+                    detectTapGestures(
+                        onTap = { o -> if (!editing) singleTap(o, w, h) },
+                        // Only wired when a double-tap action is on, so single taps aren't delayed otherwise
+                        onDoubleTap = if (!double) null else { o ->
+                            if (!editing && popover == null) {
+                                val side = sideOf(o.x, w)
+                                val continuing = side != 0 && side == streakSide && System.currentTimeMillis() - streakAt < STREAK_MS
+                                when {
+                                    side != 0 -> skip(side, if (continuing) 2 else 1)
+                                    gest.doubleTapFavourite -> {
+                                        videos.getOrNull(dominant)?.let { if (it.id !in vm.favourites.value) vm.toggleFavourite(it.id) }
+                                        heart = HeartPop(o, ++fxId)
+                                    }
+                                    else -> singleTap(o, w, h)
+                                }
+                            }
+                        },
+                    )
                 },
         ) { page ->
             val inWindow = abs(page - dominant) <= 1
@@ -518,12 +618,16 @@ fun PlayerScreen(
                             )
                             Spacer(Modifier.height(2.dp))
                         }
+                        // Time sits centred above the bar in its own pill, where it's easy to read
+                        Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp), contentAlignment = Alignment.Center) {
+                            TimeRow(coordinator)
+                        }
                         SeekBar(
                             coordinator = coordinator,
                             accent = accent,
                             onScrubbing = { scrubbing = it; poke++ },
+                            modifier = Modifier.onGloballyPositioned { seekBarBounds = it.boundsInRoot() },
                         )
-                        TimeRow(coordinator)
                     }
                 }
             }
@@ -556,6 +660,11 @@ fun PlayerScreen(
                 )
             }
         }
+
+        // Gesture feedback: double-tap skips, heart, swipe-seek readout
+        skipFlash?.let { f -> SkipFlashOverlay(f) { if (skipFlash?.id == f.id) skipFlash = null } }
+        heart?.let { hp -> HeartPopOverlay(hp, accent) { if (heart?.id == hp.id) heart = null } }
+        seekPreview?.let { SeekBubble(it, accent, Modifier.align(Alignment.Center)) }
 
         if (editing && current != null) {
             ThumbnailEditor(
@@ -734,10 +843,16 @@ private fun VideoPage(
 private fun TimeRow(coordinator: PlaybackCoordinator) {
     val pos by coordinator.positionMs.collectAsState()
     val dur by coordinator.durationMs.collectAsState()
-    Text(
-        formatTime(pos) + " / " + formatTime(dur),
-        style = TextStyle(color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, shadow = VideoTextShadow),
-    )
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0x8C101114))
+            .padding(horizontal = 11.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Text(formatTime(pos), style = TextStyle(color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold))
+        Text(" / " + formatTime(dur), style = TextStyle(color = Color.White.copy(alpha = 0.62f), fontSize = 13.sp, fontWeight = FontWeight.Medium))
+    }
 }
 
 /** Thin seek bar in the accent colour. The touch target is taller than the line. */
@@ -747,6 +862,7 @@ private fun SeekBar(
     accent: Color,
     onScrubbing: (Boolean) -> Unit,
     thick: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val progress by coordinator.progress.collectAsState()
     var drag by remember { mutableStateOf<Float?>(null) }
@@ -754,7 +870,7 @@ private fun SeekBar(
     val scrubbing by rememberUpdatedState(onScrubbing)
     val shown = drag ?: progress
     Box(
-        Modifier
+        modifier
             .fillMaxWidth()
             .height(24.dp)
             .pointerInput(Unit) {
