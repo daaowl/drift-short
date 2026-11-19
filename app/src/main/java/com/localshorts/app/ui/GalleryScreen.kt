@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -229,7 +230,7 @@ fun GalleryScreen(
         ) {
             // Everything that scrolls is the glass's backdrop
             Box(Modifier.fillMaxSize().haze(state = haze)) {
-                AmbientGlow(accent, gridState)
+                HollowBackdrop(settings.backdrop, Modifier.fillMaxSize(), animate = videos.isEmpty())
                 if (videos.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(top = with(density) { (statusTop + headerPx).toDp() })) {
                         EmptyState(
@@ -450,20 +451,20 @@ fun GalleryScreen(
 
 @Composable
 internal fun Wordmark(accent: Color, modifier: Modifier = Modifier) {
+    val look = LocalLook.current
+    val classic = look.style == com.localshorts.app.data.LookStyle.CLASSIC
     Row(modifier, verticalAlignment = Alignment.Bottom) {
         Text(
-            "Hollow",
-            style = TextStyle(
-                fontFamily = Serif,
-                fontStyle = FontStyle.Italic,
-                fontSize = 36.sp,
-                color = Hc.Ink,
-                letterSpacing = (-0.5).sp,
-            ),
+            look.wordmark,
+            style = if (classic) {
+                look.headline.copy(fontSize = 36.sp, color = Hc.Ink, letterSpacing = (-0.5).sp)
+            } else {
+                look.headline.copy(fontSize = 32.sp, color = Hc.Ink)
+            },
         )
         Box(
             Modifier
-                .padding(start = 3.dp, bottom = 9.dp)
+                .padding(start = 3.dp, bottom = if (classic) 9.dp else 8.dp)
                 .size(7.dp)
                 .clip(CircleShape)
                 .background(accent),
@@ -510,7 +511,7 @@ internal fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit,
                 value = query,
                 onValueChange = onChange,
                 singleLine = true,
-                textStyle = TextStyle(color = Hc.Ink, fontSize = 15.sp, fontFamily = Sans, fontWeight = FontWeight.Medium),
+                textStyle = TextStyle(color = Hc.Ink, fontSize = 15.sp, fontFamily = LocalLook.current.body, fontWeight = FontWeight.Medium),
                 cursorBrush = SolidColor(accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onDone() }),
@@ -538,17 +539,86 @@ internal fun FilterControl(
     modifier: Modifier = Modifier,
     onSelect: (Int) -> Unit,
 ) {
-    Box(
-        modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .glass(LocalHaze.current, RoundedCornerShape(20.dp), tint = Color(0x80202227))
-            .horizontalScroll(rememberScrollState())
-            .padding(4.dp),
-    ) {
-        SlidingSegments(labels, selected, accent, cornerRadius = 16.dp, textSize = 13f, inactive = Hc.Mute, padH = 11.dp, onSelect = onSelect)
+    when (LocalLook.current.tabs) {
+        TabStyle.GLASS -> Box(
+            modifier
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .glass(LocalHaze.current, RoundedCornerShape(20.dp), tint = Color(0x80202227))
+                .horizontalScroll(rememberScrollState())
+                .padding(4.dp),
+        ) {
+            SlidingSegments(labels, selected, accent, cornerRadius = 16.dp, textSize = 13f, inactive = Hc.Mute, padH = 11.dp, onSelect = onSelect)
+        }
+        TabStyle.SEGMENT -> Box(
+            modifier
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0x47000000))
+                .horizontalScroll(rememberScrollState())
+                .padding(4.dp),
+        ) {
+            SlidingSegments(
+                labels, selected, accent, cornerRadius = 16.dp, textSize = 13.5f, inactive = Color.White, padH = 12.dp,
+                pill = Color.White, onPill = INK_ON_WHITE, onSelect = onSelect,
+            )
+        }
+        TabStyle.CHIPS -> Row(
+            modifier.height(38.dp).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            labels.forEachIndexed { i, label ->
+                val on = i == selected
+                val bg by animateColorAsState(if (on) Color.White else Color(0x33FFFFFF), tween(200), label = "chip-bg")
+                val fg by animateColorAsState(if (on) INK_ON_WHITE else Color.White, tween(200), label = "chip-fg")
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(19.dp))
+                        .background(bg)
+                        .clickable(onClickLabel = label) { onSelect(i) }
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            }
+        }
+        TabStyle.UNDERLINE -> Row(
+            modifier.height(40.dp).horizontalScroll(rememberScrollState()).padding(start = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            labels.forEachIndexed { i, label ->
+                val on = i == selected
+                val bar by animateDpAsState(if (on) 22.dp else 0.dp, spring(dampingRatio = 0.7f, stiffness = 500f), label = "tab-bar")
+                val fg by animateColorAsState(if (on) Color.White else Color(0xB3FFFFFF), tween(200), label = "tab-fg")
+                Column(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClickLabel = label) { onSelect(i) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        label,
+                        color = fg,
+                        fontSize = 15.sp,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        style = TextStyle(shadow = VideoTextShadow),
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Box(Modifier.width(bar).height(3.dp).clip(CircleShape).background(Color.White))
+                }
+            }
+        }
     }
 }
+
+/** Dark text on white pills. */
+internal val INK_ON_WHITE = Color(0xFF14121A)
 
 /**
  * Segments sized to their labels, with an accent pill that glides and stretches between them.
@@ -564,6 +634,9 @@ internal fun SlidingSegments(
     inactive: Color,
     padH: Dp,
     maxSegment: Dp = 170.dp,
+    /** Solid pill colour; null uses the accent gradient. */
+    pill: Color? = null,
+    onPill: Color? = null,
     onSelect: (Int) -> Unit,
 ) {
     val pos by animateFloatAsState(selected.coerceAtLeast(0).toFloat(), spring(dampingRatio = 0.8f, stiffness = 520f), label = "seg-pos")
@@ -575,11 +648,11 @@ internal fun SlidingSegments(
                 Modifier
                     .graphicsLayer { alpha = pillAlpha }
                     .clip(RoundedCornerShape(cornerRadius))
-                    .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.9f), accent))),
+                    .then(if (pill != null) Modifier.background(pill) else Modifier.background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.9f), accent)))),
             )
             labels.forEachIndexed { i, label ->
                 val on = i == selected
-                val color by animateColorAsState(if (on) onAccent(accent) else inactive, tween(220), label = "seg-color")
+                val color by animateColorAsState(if (on) (onPill ?: onAccent(accent)) else inactive, tween(220), label = "seg-color")
                 Box(
                     Modifier
                         .widthIn(max = maxSegment)
@@ -789,7 +862,7 @@ internal fun TileVisual(
                     color = Color.White,
                     fontSize = if (small) 10.sp else 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = Sans,
+                    fontFamily = LocalLook.current.body,
                     shadow = VideoTextShadow,
                 ),
                 maxLines = 1,
@@ -835,9 +908,9 @@ internal fun FolderIsland(
     val shape = RoundedCornerShape(28.dp)
     Box(
         Modifier
-            .shadow(28.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(shape)
-            .glass(haze, shape, tint = Color(0xB8141518))
+            // See-through frost: light tint over the blur, white hairline; a soft translucent wash without blur
+            .glass(haze, shape, tint = Color(0x2EFFFFFF), edgeColor = Color(0x40FFFFFF), fallback = Color(0x47FFFFFF))
             .widthIn(max = 360.dp)
             .height(56.dp)
             .padding(6.dp),
@@ -870,7 +943,7 @@ internal fun FolderIsland(
                         modifier = Modifier.weight(1f, fill = false),
                     ) { onSelect(names[it].first) }
                     Spacer(Modifier.width(4.dp))
-                    IslandButton(onOpenPanel, "All folders") { GlyphIcon(Glyph.GRID, Hc.Ink, size = 18.dp) }
+                    IslandButton(onOpenPanel, "All folders") { GlyphIcon(Glyph.GRID, Color.White, size = 18.dp) }
                 }
             }
             else -> {
@@ -886,16 +959,16 @@ internal fun FolderIsland(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        Modifier.size(32.dp).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
+                        Modifier.size(32.dp).clip(CircleShape).background(Color.White),
                         contentAlignment = Alignment.Center,
-                    ) { GlyphIcon(Glyph.FOLDER, accent, size = 17.dp) }
+                    ) { GlyphIcon(Glyph.FOLDER, INK_ON_WHITE, size = 17.dp) }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.widthIn(max = 200.dp)) {
-                        Text(name, color = Hc.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("$count videos · ${folders.size} folders", color = Hc.Mute, fontSize = 11.sp, maxLines = 1)
+                        Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("$count videos · ${folders.size} folders", color = Color(0xC7FFFFFF), fontSize = 11.sp, maxLines = 1)
                     }
                     Spacer(Modifier.width(10.dp))
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = null, tint = Hc.Mute, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = null, tint = Color(0xC7FFFFFF), modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -908,7 +981,7 @@ internal fun IslandButton(onClick: () -> Unit, label: String, content: @Composab
         Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(Color(0x14FFFFFF))
+            .background(Color(0x26FFFFFF))
             .clickable(onClickLabel = label, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
@@ -923,7 +996,7 @@ internal fun IslandPills(
     onSelect: (Int) -> Unit,
 ) {
     Box(modifier.fillMaxHeight().horizontalScroll(rememberScrollState())) {
-        SlidingSegments(labels, selected, accent, cornerRadius = 22.dp, textSize = 13.5f, inactive = Hc.Ink.copy(alpha = 0.72f), padH = 15.dp, maxSegment = 140.dp, onSelect = onSelect)
+        SlidingSegments(labels, selected, accent, cornerRadius = 22.dp, textSize = 13.5f, inactive = Color.White, padH = 15.dp, maxSegment = 140.dp, pill = Color.White, onPill = INK_ON_WHITE, onSelect = onSelect)
     }
 }
 
@@ -981,7 +1054,7 @@ private fun FolderPanel(
         ) {
             Box(Modifier.align(Alignment.CenterHorizontally).width(36.dp).height(4.dp).clip(CircleShape).background(Color(0x33FFFFFF)))
             Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 14.dp, top = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Folders", style = TextStyle(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 30.sp, color = Hc.Ink), modifier = Modifier.weight(1f))
+                Text("Folders", style = LocalLook.current.headline.copy(fontSize = 30.sp, color = Hc.Ink), modifier = Modifier.weight(1f))
                 IslandButton(onRefresh, "Refresh") { Icon(Icons.Default.Refresh, contentDescription = null, tint = Hc.Ink, modifier = Modifier.size(19.dp)) }
                 Spacer(Modifier.width(8.dp))
                 Row(
@@ -1017,7 +1090,7 @@ private fun FolderPanel(
                             value = filter,
                             onValueChange = { filter = it },
                             singleLine = true,
-                            textStyle = TextStyle(color = Hc.Ink, fontSize = 14.sp, fontFamily = Sans, fontWeight = FontWeight.Medium),
+                            textStyle = TextStyle(color = Hc.Ink, fontSize = 14.sp, fontFamily = LocalLook.current.body, fontWeight = FontWeight.Medium),
                             cursorBrush = SolidColor(accent),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -1144,7 +1217,7 @@ internal fun EmptyState(
     ) {
         EmptyArt(accent, scanning)
         Spacer(Modifier.height(28.dp))
-        Text(title, style = TextStyle(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 30.sp, color = Hc.Ink, textAlign = TextAlign.Center))
+        Text(title, style = LocalLook.current.headline.copy(fontSize = 30.sp, color = Hc.Ink, textAlign = TextAlign.Center))
         Spacer(Modifier.height(10.dp))
         Text(body, color = Hc.Mute, fontSize = 14.5.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)
         if (noFolders) {

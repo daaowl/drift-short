@@ -131,7 +131,7 @@ fun HollowRoot(vm: MainViewModel, activity: MainActivity) {
         if (settings.loaded) activity.setLockEnabled(settings.lock)
     }
 
-    HollowTheme(accent = Color(settings.accent)) {
+    HollowTheme(accent = Color(settings.accent), look = settings.look) {
         Box(Modifier.fillMaxSize().background(if (session != null) Color.Black else Hc.Bg)) {
             GalleryScreen(
                 vm = vm,
@@ -194,7 +194,7 @@ fun HollowRoot(vm: MainViewModel, activity: MainActivity) {
                 SettingsScreen(vm = vm, activity = activity, onBack = { showSettings = false })
             }
             if (locked) {
-                LockScreen(iconId = settings.icon, onUnlock = { activity.authenticate() })
+                LockScreen(iconId = settings.icon, backdrop = settings.backdrop, onUnlock = { activity.authenticate() })
             }
         }
     }

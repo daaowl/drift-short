@@ -17,6 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -89,6 +90,8 @@ import com.localshorts.app.data.SPEEDS
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.ThumbMode
 import com.localshorts.app.data.TileShape
+import com.localshorts.app.data.LookStyle
+import com.localshorts.app.data.Backdrop
 import com.localshorts.app.data.TransitionSpeed
 import com.localshorts.app.data.speedLabel
 import kotlin.math.roundToInt
@@ -109,10 +112,11 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
     BackHandler(enabled = page != null) { page = null }
 
+    Box(Modifier.fillMaxSize()) {
+    HollowBackdrop(s.backdrop, Modifier.fillMaxSize(), dim = 0.6f, animate = false)
     Column(
         Modifier
             .fillMaxSize()
-            .background(Hc.Bg)
             // swallow touches so the gallery underneath never receives them
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
             .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility),
@@ -123,7 +127,7 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
             }
             Text(
                 page?.title ?: "Settings",
-                style = TextStyle(fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 30.sp, color = Hc.Ink),
+                style = LocalLook.current.headline.copy(fontSize = 30.sp, color = Hc.Ink),
             )
         }
         AnimatedContent(
@@ -154,6 +158,7 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
             }
         }
     }
+    }
 }
 
 // ---------------------------------------------------------------- home
@@ -161,7 +166,7 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
 @Composable
 private fun Home(s: Settings, open: (Page) -> Unit) {
     fun summary(p: Page) = when (p) {
-        Page.APPEARANCE -> "${ACCENTS.firstOrNull { it.second == s.accent }?.first ?: "Custom"} accent · ${APP_ICONS.firstOrNull { it.id == s.icon }?.label ?: "Hollow"} icon · ${s.columns} columns"
+        Page.APPEARANCE -> "${s.look.label} style · ${s.backdrop.label} background · ${ACCENTS.firstOrNull { it.second == s.accent }?.first ?: "Custom"} accent · ${APP_ICONS.firstOrNull { it.id == s.icon }?.label ?: "Hollow"} icon · ${s.columns} columns"
         Page.PLAYBACK -> "${s.openStyle.label} opening · ${endLabel(s.end)} · ${s.transition.label} swipe"
         Page.THUMBNAILS -> "Default frame and custom thumbnails"
         Page.GESTURES -> listOfNotNull(if (s.brightnessGesture) "Brightness" else null, if (s.volumeGesture) "Volume" else null)
@@ -197,6 +202,58 @@ private fun Appearance(vm: MainViewModel, s: Settings) {
     val accent = LocalAccent.current
     val context = LocalContext.current
     var custom by remember { mutableStateOf(false) }
+
+    Header("Style")
+    Group(padded = true) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            LookStyle.values().forEach { l ->
+                val on = s.look == l
+                val look = lookFor(l)
+                Column(
+                    Modifier
+                        .width(118.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (on) accent.copy(alpha = 0.14f) else Hc.Surface2)
+                        .then(if (on) Modifier.border(1.5.dp, accent, RoundedCornerShape(14.dp)) else Modifier)
+                        .clickable { vm.setLook(l) }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                ) {
+                    Text(look.wordmark, style = look.headline.copy(fontSize = 26.sp, color = Hc.Ink), maxLines = 1)
+                    Spacer(Modifier.height(6.dp))
+                    Text(l.label, color = if (on) accent else Hc.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = look.body)
+                    Text(l.summary, color = Hc.Mute, fontSize = 11.sp, lineHeight = 14.sp, fontFamily = look.body, minLines = 2, maxLines = 2)
+                }
+            }
+        }
+    }
+    Footnote("Changes the fonts, the wordmark and the filter tabs. Classic is the original look.")
+
+    Header("Background")
+    Group(padded = true) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Backdrop.values().forEach { b ->
+                val on = s.backdrop == b
+                Column(
+                    Modifier.clip(RoundedCornerShape(12.dp)).clickable { vm.setBackdrop(b) }.padding(2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        Modifier
+                            .size(width = 44.dp, height = 64.dp)
+                            .then(if (on) Modifier.border(2.dp, accent, RoundedCornerShape(12.dp)) else Modifier.border(0.6.dp, Hc.Hairline, RoundedCornerShape(12.dp)))
+                            .padding(if (on) 3.dp else 0.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                    ) {
+                        HollowBackdrop(b, Modifier.fillMaxSize(), animate = false)
+                    }
+                    Text(b.label, color = if (on) accent else Hc.Mute, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp))
+                }
+            }
+        }
+    }
 
     Header("Accent colour")
     Group(padded = true) {

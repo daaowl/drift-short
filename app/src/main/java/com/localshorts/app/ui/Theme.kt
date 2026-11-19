@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.localshorts.app.R
+import com.localshorts.app.data.LookStyle
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeChild
@@ -59,15 +60,62 @@ val Sans = FontFamily(
     Font(R.font.manrope_800, FontWeight.ExtraBold),
 )
 
-private val base = TextStyle(fontFamily = Sans, letterSpacing = 0.sp)
-
-private val HollowTypography = Typography(
-    displayLarge = base, displayMedium = base, displaySmall = base,
-    headlineLarge = base, headlineMedium = base, headlineSmall = base,
-    titleLarge = base, titleMedium = base, titleSmall = base,
-    bodyLarge = base, bodyMedium = base, bodySmall = base,
-    labelLarge = base, labelMedium = base, labelSmall = base,
+val Nunito = FontFamily(
+    Font(R.font.nunito_400, FontWeight.Normal),
+    Font(R.font.nunito_500, FontWeight.Medium),
+    Font(R.font.nunito_600, FontWeight.SemiBold),
+    Font(R.font.nunito_700, FontWeight.Bold),
+    Font(R.font.nunito_800, FontWeight.ExtraBold),
 )
+
+val Outfit = FontFamily(
+    Font(R.font.outfit_400, FontWeight.Normal),
+    Font(R.font.outfit_500, FontWeight.Medium),
+    Font(R.font.outfit_600, FontWeight.SemiBold),
+    Font(R.font.outfit_700, FontWeight.Bold),
+    Font(R.font.outfit_800, FontWeight.ExtraBold),
+)
+
+val Fredoka = FontFamily(
+    Font(R.font.fredoka_400, FontWeight.Normal),
+    Font(R.font.fredoka_500, FontWeight.Medium),
+    Font(R.font.fredoka_600, FontWeight.SemiBold),
+    Font(R.font.fredoka_700, FontWeight.Bold),
+)
+
+/** How filter tabs are drawn for a look. */
+enum class TabStyle { GLASS, CHIPS, UNDERLINE, SEGMENT }
+
+/** Everything a [LookStyle] changes: body font, the headline/wordmark voice, tab style. */
+data class Look(
+    val style: LookStyle,
+    val body: FontFamily,
+    /** Big titles: the wordmark, page and sheet titles. */
+    val headline: TextStyle,
+    val wordmark: String,
+    val tabs: TabStyle,
+)
+
+fun lookFor(style: LookStyle): Look = when (style) {
+    LookStyle.CLASSIC -> Look(style, Sans, TextStyle(fontFamily = Serif, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal), "Hollow", TabStyle.GLASS)
+    LookStyle.ROUNDED -> Look(style, Nunito, TextStyle(fontFamily = Nunito, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp), "hollow", TabStyle.CHIPS)
+    LookStyle.CLEAN -> Look(style, Outfit, TextStyle(fontFamily = Outfit, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp), "hollow", TabStyle.UNDERLINE)
+    LookStyle.BOLD -> Look(style, Fredoka, TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp), "hollow", TabStyle.SEGMENT)
+    LookStyle.SYSTEM -> Look(style, FontFamily.Default, TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Black, letterSpacing = (-1).sp), "hollow", TabStyle.CHIPS)
+}
+
+private fun typographyFor(family: FontFamily): Typography {
+    val base = TextStyle(fontFamily = family, letterSpacing = 0.sp)
+    return Typography(
+        displayLarge = base, displayMedium = base, displaySmall = base,
+        headlineLarge = base, headlineMedium = base, headlineSmall = base,
+        titleLarge = base, titleMedium = base, titleSmall = base,
+        bodyLarge = base, bodyMedium = base, bodySmall = base,
+        labelLarge = base, labelMedium = base, labelSmall = base,
+    )
+}
+
+val LocalLook = staticCompositionLocalOf { lookFor(LookStyle.CLASSIC) }
 
 val LocalAccent = staticCompositionLocalOf { Color(0xFFE5484D) }
 val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
@@ -75,7 +123,9 @@ val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
 fun onAccent(accent: Color): Color = if (accent.luminance() > 0.45f) Hc.Bg else Color.White
 
 @Composable
-fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
+fun HollowTheme(accent: Color, look: LookStyle = LookStyle.CLASSIC, content: @Composable () -> Unit) {
+    val l = androidx.compose.runtime.remember(look) { lookFor(look) }
+    val type = androidx.compose.runtime.remember(look) { typographyFor(l.body) }
     val scheme = darkColorScheme(
         primary = accent,
         onPrimary = onAccent(accent),
@@ -86,8 +136,8 @@ fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
         surfaceVariant = Hc.Surface2,
         onSurfaceVariant = Hc.Mute,
     )
-    CompositionLocalProvider(LocalAccent provides accent) {
-        MaterialTheme(colorScheme = scheme, typography = HollowTypography, content = content)
+    CompositionLocalProvider(LocalAccent provides accent, LocalLook provides l) {
+        MaterialTheme(colorScheme = scheme, typography = type, content = content)
     }
 }
 
@@ -95,10 +145,16 @@ fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
  * Frosted glass: blurs whatever scrolls underneath (Android 12+), with a dark tint, fine grain and a
  * hairline edge. On older phones it falls back to the tint alone, which still reads as glass.
  */
-fun Modifier.glass(state: HazeState?, shape: Shape, tint: Color = Hc.Glass): Modifier {
-    val edge = this.border(0.6.dp, Hc.Hairline, shape)
+fun Modifier.glass(
+    state: HazeState?,
+    shape: Shape,
+    tint: Color = Hc.Glass,
+    edgeColor: Color = Hc.Hairline,
+    fallback: Color? = null,
+): Modifier {
+    val edge = this.border(0.6.dp, edgeColor, shape)
     // Without real blur (older Android, or no backdrop), lean on a more solid tint so text stays legible
-    val solid = tint.copy(alpha = maxOf(tint.alpha, 0.9f))
+    val solid = fallback ?: tint.copy(alpha = maxOf(tint.alpha, 0.9f))
     return if (state != null && android.os.Build.VERSION.SDK_INT >= 31) {
         edge.hazeChild(state = state, shape = shape, style = HazeStyle(tint = tint, blurRadius = 28.dp, noiseFactor = 0.06f))
     } else {

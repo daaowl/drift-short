@@ -6,6 +6,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import com.localshorts.app.data.Backdrop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,6 +32,47 @@ val RavePalette = MeshPalette(
         Color(0xFF4436B4), // indigo, bottom right
     ),
 )
+
+val SunsetPalette = MeshPalette(
+    base = Color(0xFF3A1430),
+    blobs = listOf(Color(0xFFD8604A), Color(0xFFB82E6A), Color(0xFF7A2C8A), Color(0xFFE08A4A), Color(0xFFC8486A), Color(0xFF5A2A86)),
+)
+
+val OceanPalette = MeshPalette(
+    base = Color(0xFF0A1C38),
+    blobs = listOf(Color(0xFF1E86B4), Color(0xFF2C4EC2), Color(0xFF15948C), Color(0xFF3A3CA4), Color(0xFF0E6488), Color(0xFF4A6CD0)),
+)
+
+val AuroraPalette = MeshPalette(
+    base = Color(0xFF0A1C22),
+    blobs = listOf(Color(0xFF26A87C), Color(0xFF6A4CC8), Color(0xFF1C8AA2), Color(0xFF3C9C6C), Color(0xFF8A44B4), Color(0xFF2A6CC4)),
+)
+
+val EmberPalette = MeshPalette(
+    base = Color(0xFF1E0C08),
+    blobs = listOf(Color(0xFFC4452C), Color(0xFFD27A2A), Color(0xFF8E2622), Color(0xFFB0542A), Color(0xFF6E2216), Color(0xFFB8863A)),
+)
+
+fun paletteFor(b: Backdrop): MeshPalette? = when (b) {
+    Backdrop.RAVE -> RavePalette
+    Backdrop.SUNSET -> SunsetPalette
+    Backdrop.OCEAN -> OceanPalette
+    Backdrop.AURORA -> AuroraPalette
+    Backdrop.EMBER -> EmberPalette
+    Backdrop.NONE -> null
+}
+
+/** The chosen backdrop filling its parent, optionally dimmed (for busy screens like Settings). */
+@Composable
+fun HollowBackdrop(backdrop: Backdrop, modifier: Modifier = Modifier, dim: Float = 0f, animate: Boolean = true) {
+    val palette = paletteFor(backdrop)
+    Box(modifier.background(Hc.Bg)) {
+        if (palette != null) {
+            MeshGradient(Modifier.matchParentSize(), palette, animate)
+            if (dim > 0f) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = dim)))
+        }
+    }
+}
 
 /**
  * A slow-moving, full-bleed mesh gradient: big overlapping colour fields that melt into each other,

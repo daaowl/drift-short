@@ -33,6 +33,25 @@ enum class OpenStyle(val label: String, val summary: String) {
     TIKTOK("TikTok", "A quick, springy expand from the tile"),
 }
 
+/** Overall look: fonts, wordmark and filter tabs. CLASSIC is the original 1.0 header. */
+enum class LookStyle(val label: String, val summary: String) {
+    CLASSIC("Classic", "Serif wordmark, glass tabs with a sliding pill"),
+    ROUNDED("Rounded", "Nunito, separate pill tabs"),
+    CLEAN("Clean", "Outfit, text tabs with an underline"),
+    BOLD("Bold", "Fredoka, white pill in a dark track"),
+    SYSTEM("System", "Your phone's font, separate pill tabs"),
+}
+
+/** Full-screen gradient behind the app. */
+enum class Backdrop(val label: String) {
+    RAVE("Rave"),
+    SUNSET("Sunset"),
+    OCEAN("Ocean"),
+    AURORA("Aurora"),
+    EMBER("Ember"),
+    NONE("None"),
+}
+
 /** Shape of the grid tiles. */
 enum class TileShape(val label: String, val ratio: Float) {
     TALL("Tall", 9f / 16f),
@@ -65,6 +84,8 @@ data class Settings(
     val tileShape: TileShape = TileShape.TALL,
     /** Goat's idea: grid tiles play a short moving preview, and openings grow from its first frame. */
     val previews: Boolean = false,
+    val look: LookStyle = LookStyle.CLASSIC,
+    val backdrop: Backdrop = Backdrop.RAVE,
     val loaded: Boolean = false,
 )
 

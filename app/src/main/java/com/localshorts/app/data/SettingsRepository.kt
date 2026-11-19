@@ -33,6 +33,8 @@ class SettingsRepository(private val context: Context) {
     private val kOpenStyle = stringPreferencesKey("open_style")
     private val kTileShape = stringPreferencesKey("tile_shape")
     private val kPreviews = booleanPreferencesKey("previews")
+    private val kLook = stringPreferencesKey("look")
+    private val kBackdrop = stringPreferencesKey("backdrop")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -59,6 +61,8 @@ class SettingsRepository(private val context: Context) {
         tileShape = enumOf(p[kTileShape], TileShape.TALL),
         // Goat's idea used to be its own opening style; anyone who had it keeps previews on
         previews = p[kPreviews] ?: (p[kOpenStyle] == "GOAT"),
+        look = enumOf(p[kLook], LookStyle.CLASSIC),
+        backdrop = enumOf(p[kBackdrop], Backdrop.RAVE),
         loaded = true,
     )
 
@@ -81,6 +85,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setOpenStyle(st: OpenStyle) = context.settingsStore.edit { it[kOpenStyle] = st.name }
     suspend fun setTileShape(t: TileShape) = context.settingsStore.edit { it[kTileShape] = t.name }
     suspend fun setPreviews(on: Boolean) = context.settingsStore.edit { it[kPreviews] = on }
+    suspend fun setLook(l: LookStyle) = context.settingsStore.edit { it[kLook] = l.name }
+    suspend fun setBackdrop(b: Backdrop) = context.settingsStore.edit { it[kBackdrop] = b.name }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f

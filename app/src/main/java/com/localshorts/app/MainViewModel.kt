@@ -9,6 +9,8 @@ import com.localshorts.app.data.Folder
 import com.localshorts.app.data.InfoStyle
 import com.localshorts.app.data.OpenStyle
 import com.localshorts.app.data.TileShape
+import com.localshorts.app.data.LookStyle
+import com.localshorts.app.data.Backdrop
 import com.localshorts.app.data.Settings
 import com.localshorts.app.data.SortOrder
 import com.localshorts.app.data.ThumbMode
@@ -108,6 +110,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setOpenStyle(st: OpenStyle) = viewModelScope.launch { hollow.settings.setOpenStyle(st) }
     fun setTileShape(t: TileShape) = viewModelScope.launch { hollow.settings.setTileShape(t) }
     fun setPreviews(on: Boolean) = viewModelScope.launch { hollow.settings.setPreviews(on) }
+    fun setLook(l: LookStyle) = viewModelScope.launch { hollow.settings.setLook(l) }
+    fun setBackdrop(b: Backdrop) = viewModelScope.launch { hollow.settings.setBackdrop(b) }
     fun toggleFavourite(id: String) = viewModelScope.launch { hollow.userData.toggleFavourite(id) }
     fun addWatch(id: String) = viewModelScope.launch { hollow.userData.addWatch(id) }
 

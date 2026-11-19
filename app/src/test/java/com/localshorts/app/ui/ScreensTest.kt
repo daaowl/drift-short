@@ -1,5 +1,9 @@
 package com.localshorts.app.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.localshorts.app.data.Backdrop
+import com.localshorts.app.data.LookStyle
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -58,21 +62,34 @@ class ScreensTest {
     @Test
     fun home_many_folders_square() = paparazzi.snapshot { Frame { HomeMock(columns = 2, ratio = 1f, folders = 9, selected = 2) } }
 
+    @Test fun style_rounded() = paparazzi.snapshot { Frame(LookStyle.ROUNDED) { HomeMock(columns = 2, folders = 3, selected = 1) } }
+    @Test fun style_clean() = paparazzi.snapshot { Frame(LookStyle.CLEAN) { HomeMock(columns = 2, folders = 3, selected = 1, backdrop = Backdrop.OCEAN) } }
+    @Test fun style_bold() = paparazzi.snapshot { Frame(LookStyle.BOLD) { HomeMock(columns = 2, folders = 3, selected = 1, backdrop = Backdrop.SUNSET) } }
+    @Test fun style_system() = paparazzi.snapshot { Frame(LookStyle.SYSTEM) { HomeMock(columns = 2, folders = 3, selected = 1, backdrop = Backdrop.AURORA) } }
+
+    @Test fun backdrops() = paparazzi.snapshot {
+        Frame {
+            Row(Modifier.fillMaxSize()) {
+                Backdrop.values().forEach { b -> HollowBackdrop(b, Modifier.weight(1f).fillMaxHeight(), animate = false) }
+            }
+        }
+    }
+
     @Test
     fun empty() = paparazzi.snapshot {
         Frame {
             Box(Modifier.fillMaxSize().background(Hc.Bg)) {
-                AmbientGlow(accent, rememberLazyGridState())
+                HollowBackdrop(Backdrop.RAVE, Modifier.fillMaxSize(), animate = false)
                 EmptyState(noFolders = true, scanning = false, searching = false, favourites = false, lost = false, accent = accent, onAdd = {})
             }
         }
     }
 
     @Composable
-    private fun Frame(content: @Composable () -> Unit) = HollowTheme(accent) { content() }
+    private fun Frame(look: LookStyle = LookStyle.CLASSIC, content: @Composable () -> Unit) = HollowTheme(accent, look) { content() }
 
     @Composable
-    private fun HomeMock(columns: Int, folders: Int, selected: Int, ratio: Float = 9f / 16f) {
+    private fun HomeMock(columns: Int, folders: Int, selected: Int, ratio: Float = 9f / 16f, backdrop: Backdrop = Backdrop.RAVE) {
         val gutter = if (columns == 1) 4.dp else 2.dp
         val radius = 0.dp
         val covers = remember { List(12) { fakeFrame(it) } }
@@ -80,7 +97,7 @@ class ScreensTest {
         val fs = List(folders) { Folder("uri$it", names[it % names.size]) }
         val lib = List(30) { VideoItem("v$it", android.net.Uri.EMPTY, "Video $it", it.toLong(), 1L, "uri${it % folders.coerceAtLeast(1)}") }
         Box(Modifier.fillMaxSize().background(Hc.Bg)) {
-            AmbientGlow(accent, rememberLazyGridState())
+            HollowBackdrop(backdrop, Modifier.fillMaxSize(), animate = false)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 contentPadding = PaddingValues(top = 150.dp, bottom = 110.dp),

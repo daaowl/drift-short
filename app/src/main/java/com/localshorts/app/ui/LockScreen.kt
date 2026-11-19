@@ -28,13 +28,14 @@ import androidx.compose.ui.unit.sp
 
 /** Covers the app until the phone's own unlock succeeds. Screenshots stay allowed. */
 @Composable
-fun LockScreen(iconId: String, onUnlock: () -> Unit) {
+fun LockScreen(iconId: String, backdrop: com.localshorts.app.data.Backdrop = com.localshorts.app.data.Backdrop.NONE, onUnlock: () -> Unit) {
     LaunchedEffect(Unit) { onUnlock() }
     val accent = LocalAccent.current
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+    HollowBackdrop(backdrop, Modifier.fillMaxSize(), dim = 0.25f)
     Column(
         Modifier
             .fillMaxSize()
-            .background(Hc.Bg)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -43,12 +44,7 @@ fun LockScreen(iconId: String, onUnlock: () -> Unit) {
         Spacer(Modifier.height(18.dp))
         Text(
             "Hollow is locked",
-            style = androidx.compose.ui.text.TextStyle(
-                fontFamily = Serif,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontSize = 30.sp,
-                color = Hc.Ink,
-            ),
+            style = LocalLook.current.headline.copy(fontSize = 30.sp, color = Hc.Ink),
         )
         Spacer(Modifier.height(28.dp))
         Row(
@@ -63,5 +59,6 @@ fun LockScreen(iconId: String, onUnlock: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Unlock", color = onAccent(accent), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
+    }
     }
 }
