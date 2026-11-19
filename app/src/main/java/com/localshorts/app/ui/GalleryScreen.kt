@@ -29,6 +29,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -519,7 +520,7 @@ internal fun SearchBar(query: String, accent: Color, onChange: (String) -> Unit,
     }
 }
 
-/** Glass track with a softly sliding accent pill under the selected label. */
+/** Glass track with a softly sliding accent pill under the selected label. Segments share one width. */
 @Composable
 internal fun FilterControl(
     labels: List<String>,
@@ -528,13 +529,6 @@ internal fun FilterControl(
     modifier: Modifier = Modifier,
     onSelect: (Int) -> Unit,
 ) {
-    val density = LocalDensity.current
-    val xs = remember { mutableStateMapOf<Int, Float>() }
-    val ws = remember { mutableStateMapOf<Int, Float>() }
-    val targetW = ws[selected] ?: 0f
-    val x by animateFloatAsState(xs[selected] ?: 0f, spring(dampingRatio = 0.78f, stiffness = 520f), label = "pill-x")
-    val w by animateFloatAsState(targetW, spring(dampingRatio = 0.78f, stiffness = 520f), label = "pill-w")
-    val pillAlpha by animateFloatAsState(if (selected >= 0 && targetW > 0f) 1f else 0f, tween(180), label = "pill-a")
     Box(
         modifier
             .height(40.dp)
@@ -542,36 +536,64 @@ internal fun FilterControl(
             .glass(LocalHaze.current, RoundedCornerShape(20.dp), tint = Color(0x80202227))
             .padding(4.dp),
     ) {
+        SlidingSegments(labels, selected, accent, cornerRadius = 16.dp, textSize = 13.5f, inactive = Hc.Mute, padH = 14.dp, onSelect = onSelect)
+    }
+}
+
+/**
+ * Equal-width segments with an accent pill that glides between them. Widths come from the widest
+ * label, so the pill is placed correctly from the very first frame.
+ */
+@Composable
+internal fun SlidingSegments(
+    labels: List<String>,
+    selected: Int,
+    accent: Color,
+    cornerRadius: Dp,
+    textSize: Float,
+    inactive: Color,
+    padH: Dp,
+    maxSegment: Dp = 160.dp,
+    onSelect: (Int) -> Unit,
+) {
+    val pos by animateFloatAsState(selected.coerceAtLeast(0).toFloat(), spring(dampingRatio = 0.78f, stiffness = 520f), label = "seg-pos")
+    val pillAlpha by animateFloatAsState(if (selected >= 0) 1f else 0f, tween(180), label = "seg-alpha")
+    Box(Modifier.fillMaxHeight().width(IntrinsicSize.Max)) {
         Box(
             Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(1f / labels.size.coerceAtLeast(1))
                 .graphicsLayer {
-                    translationX = x
+                    translationX = size.width * pos
                     alpha = pillAlpha
                 }
-                .width(with(density) { w.toDp() })
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.92f), accent))),
+                .clip(RoundedCornerShape(cornerRadius))
+                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.9f), accent))),
         )
         Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { i, label ->
                 val on = i == selected
-                val color by animateColorAsState(if (on) onAccent(accent) else Hc.Mute, tween(220), label = "seg-color")
-                Text(
-                    label,
-                    color = color,
-                    fontSize = 13.5.sp,
-                    fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .onGloballyPositioned {
-                            xs[i] = it.positionInParent().x
-                            ws[i] = it.size.width.toFloat()
-                        }
-                        .clip(RoundedCornerShape(16.dp))
+                val color by animateColorAsState(if (on) onAccent(accent) else inactive, tween(220), label = "seg-color")
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .widthIn(max = maxSegment)
+                        .clip(RoundedCornerShape(cornerRadius))
                         .clickable(onClickLabel = label) { onSelect(i) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                )
+                        .padding(horizontal = padH),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        color = color,
+                        fontSize = textSize.sp,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -793,9 +815,9 @@ internal fun FolderIsland(
     val shape = RoundedCornerShape(28.dp)
     Box(
         Modifier
-            .shadow(24.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .shadow(28.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(shape)
-            .glass(haze, shape, tint = Color(0xA6141518))
+            .glass(haze, shape, tint = Color(0xB8141518))
             .widthIn(max = 360.dp)
             .height(56.dp)
             .padding(6.dp),
@@ -880,43 +902,8 @@ internal fun IslandPills(
     modifier: Modifier,
     onSelect: (Int) -> Unit,
 ) {
-    val density = LocalDensity.current
-    val xs = remember { mutableStateMapOf<Int, Float>() }
-    val ws = remember { mutableStateMapOf<Int, Float>() }
-    val x by animateFloatAsState(xs[selected] ?: 0f, spring(dampingRatio = 0.75f, stiffness = 480f), label = "isl-x")
-    val w by animateFloatAsState(ws[selected] ?: 0f, spring(dampingRatio = 0.75f, stiffness = 480f), label = "isl-w")
     Box(modifier.fillMaxHeight().horizontalScroll(rememberScrollState())) {
-        Box(
-            Modifier
-                .graphicsLayer { translationX = x }
-                .width(with(density) { w.toDp() })
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(22.dp))
-                .background(accent),
-        )
-        Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
-            labels.forEachIndexed { i, label ->
-                val on = i == selected
-                val color by animateColorAsState(if (on) onAccent(accent) else Hc.Ink.copy(alpha = 0.78f), tween(200), label = "isl-c")
-                Text(
-                    label,
-                    color = color,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .onGloballyPositioned {
-                            xs[i] = it.positionInParent().x
-                            ws[i] = it.size.width.toFloat()
-                        }
-                        .widthIn(max = 140.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .clickable(onClickLabel = label) { onSelect(i) }
-                        .padding(horizontal = 16.dp, vertical = 11.dp),
-                )
-            }
-        }
+        SlidingSegments(labels, selected, accent, cornerRadius = 22.dp, textSize = 13.5f, inactive = Hc.Ink.copy(alpha = 0.72f), padH = 14.dp, maxSegment = 130.dp, onSelect = onSelect)
     }
 }
 

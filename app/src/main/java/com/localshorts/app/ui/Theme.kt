@@ -3,6 +3,7 @@ package com.localshorts.app.ui
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -96,10 +97,12 @@ fun HollowTheme(accent: Color, content: @Composable () -> Unit) {
  */
 fun Modifier.glass(state: HazeState?, shape: Shape, tint: Color = Hc.Glass): Modifier {
     val edge = this.border(0.6.dp, Hc.Hairline, shape)
-    return if (state != null) {
+    // Without real blur (older Android, or no backdrop), lean on a more solid tint so text stays legible
+    val solid = tint.copy(alpha = maxOf(tint.alpha, 0.9f))
+    return if (state != null && android.os.Build.VERSION.SDK_INT >= 31) {
         edge.hazeChild(state = state, shape = shape, style = HazeStyle(tint = tint, blurRadius = 28.dp, noiseFactor = 0.06f))
     } else {
-        edge
+        edge.background(solid, shape)
     }
 }
 
