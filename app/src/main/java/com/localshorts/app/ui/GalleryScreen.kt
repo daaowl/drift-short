@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -133,6 +134,7 @@ import com.localshorts.app.data.Folder
 import com.localshorts.app.data.OpenStyle
 import com.localshorts.app.data.SortOrder
 import com.localshorts.app.data.ThumbnailLoader
+import com.localshorts.app.data.TileShape
 import com.localshorts.app.data.VideoItem
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
@@ -217,9 +219,14 @@ fun GalleryScreen(
     val statusTop = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
     val navBottom = WindowInsets.navigationBarsIgnoringVisibility.getBottom(density)
     val cols = settings.columns
-    // Boxy, Shorts-style grid: square corners, hairline gaps, edge to edge
-    val gutter = if (cols == 1) 4.dp else 2.dp
+    // Boxy, Shorts-style grid: square corners, no gaps, edge to edge
     val radius = 0.dp
+    val ratios by vm.ratios.collectAsState()
+    val auto = settings.tileShape == TileShape.AUTO
+    val layout = remember(videos, ratios, cols, auto) {
+        if (auto) justifyRows(videos.map { ratios[it.id] ?: DEFAULT_RATIO }, cols) else null
+    }
+    val gridWidth = with(density) { androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp }
 
     CompositionLocalProvider(LocalHaze provides haze) {
         Box(
@@ -245,19 +252,29 @@ fun GalleryScreen(
                     }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(cols),
+                        columns = GridCells.Fixed(if (auto) SPAN_UNITS else cols),
                         state = gridState,
                         contentPadding = with(density) {
                             PaddingValues(
-                                top = (statusTop + headerPx).toDp() + 2.dp,
+                                top = (statusTop + headerPx).toDp(),
                                 bottom = navBottom.toDp() + 110.dp,
                             )
                         },
-                        horizontalArrangement = Arrangement.spacedBy(gutter),
-                        verticalArrangement = Arrangement.spacedBy(gutter),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        itemsIndexed(videos, key = { _, v -> v.id }) { index, v ->
+                        itemsIndexed(
+                            videos,
+                            key = { _, v -> v.id },
+                            span = { i, _ -> GridItemSpan(layout?.spans?.getOrNull(i) ?: 1) },
+                        ) { index, v ->
+                            val fixedRatio = if (cols == 1 && settings.tileShape.ratio < 0.7f) 4f / 5f else settings.tileShape.ratio
+                            val target = if (layout != null) {
+                                gridWidth / (layout.rowSums.getOrNull(index) ?: 1f)
+                            } else {
+                                gridWidth / cols / fixedRatio
+                            }
+                            // Shape changes glide instead of snapping
+                            val tileHeight by animateDpAsState(target, spring(dampingRatio = 0.86f, stiffness = 380f), label = "tile-h")
                             Thumb(
                                 v = v,
                                 loader = vm.thumbs,
@@ -265,7 +282,8 @@ fun GalleryScreen(
                                 preview = settings.previews,
                                 warmStart = settings.openStyle != OpenStyle.YOUTUBE,
                                 columns = cols,
-                                ratio = if (cols == 1 && settings.tileShape.ratio < 0.7f) 4f / 5f else settings.tileShape.ratio,
+                                ratio = 1f,
+                                height = tileHeight,
                                 radius = radius,
                                 favourite = v.id in favs,
                                 views = watch[v.id] ?: 0,
@@ -731,6 +749,7 @@ private fun Thumb(
     warmStart: Boolean,
     columns: Int,
     ratio: Float,
+    height: Dp?,
     radius: Dp,
     favourite: Boolean,
     views: Int,
@@ -771,6 +790,7 @@ private fun Thumb(
         name = v.name,
         columns = columns,
         ratio = ratio,
+        height = height,
         radius = radius,
         favourite = favourite,
         views = views,
@@ -796,6 +816,8 @@ internal fun TileVisual(
     views: Int,
     imageAlpha: () -> Float = { 1f },
     modifier: Modifier = Modifier,
+    /** Exact height (rows of the Auto shape, animated shape changes); null uses [ratio]. */
+    height: Dp? = null,
     onClick: () -> Unit = {},
 ) {
     val small = columns >= 3
@@ -805,7 +827,7 @@ internal fun TileVisual(
         modifier
             .pressScale(interaction, 0.955f)
             .fillMaxWidth()
-            .aspectRatio(ratio)
+            .then(if (height != null) Modifier.height(height) else Modifier.aspectRatio(ratio))
             .clip(shape)
             .background(Hc.Surface)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
@@ -1278,4 +1300,54 @@ internal fun EmptyArt(accent: Color, busy: Boolean) {
             }
         }
     }
+}
+
+// ============================================================== auto tile layout
+
+/** Grid columns the Auto shape divides each row into; tiles span a share proportional to their shape. */
+internal const val SPAN_UNITS = 240
+internal const val DEFAULT_RATIO = 9f / 16f
+
+/** Per-item grid spans and, for each item, the summed shape of its row (row height = width / sum). */
+internal class RowLayout(val spans: IntArray, val rowSums: FloatArray)
+
+/**
+ * Packs videos into rows like a photo wall: every tile keeps (close to) its video's own shape and all
+ * tiles in a row share one height, so rows fill the width exactly with no gaps. Rows aim for the height
+ * a 9:16 tile would have at the chosen column count, so portrait-heavy feeds keep that many per row and
+ * a landscape clip takes the room of about two.
+ */
+internal fun justifyRows(ratios: List<Float>, columns: Int): RowLayout {
+    val n = ratios.size
+    val spans = IntArray(n)
+    val sums = FloatArray(n)
+    val minR = if (columns == 1) 0.8f else 0.5f
+    val r = FloatArray(n) { ratios[it].coerceIn(minR, 2.4f) }
+    val target = columns * DEFAULT_RATIO.coerceAtLeast(if (columns == 1) 0.8f else 0f)
+    var i = 0
+    while (i < n) {
+        var j = i
+        var sum = 0f
+        // Grow the row while doing so brings its total closer to the target
+        while (j < n) {
+            val next = sum + r[j]
+            if (j > i && (kotlin.math.abs(next - target) >= kotlin.math.abs(sum - target) || j - i >= columns + 1)) break
+            sum = next
+            j++
+        }
+        // A short last row keeps a sensible height instead of blowing up to full width
+        val last = j >= n
+        val rowSum = if (last && sum < target * 0.75f) target else sum
+        var used = 0
+        var acc = 0f
+        for (k in i until j) {
+            acc += r[k]
+            val end = if (k == j - 1 && rowSum == sum) SPAN_UNITS else kotlin.math.round(SPAN_UNITS * acc / rowSum).toInt()
+            spans[k] = (end - used).coerceAtLeast(1)
+            used += spans[k]
+            sums[k] = rowSum
+        }
+        i = j
+    }
+    return RowLayout(spans, sums)
 }

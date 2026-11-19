@@ -67,6 +67,9 @@ class ScreensTest {
     @Test fun style_bold() = paparazzi.snapshot { Frame(LookStyle.BOLD) { HomeMock(columns = 2, folders = 3, selected = 1, backdrop = Backdrop.SUNSET) } }
     @Test fun style_system() = paparazzi.snapshot { Frame(LookStyle.SYSTEM) { HomeMock(columns = 2, folders = 3, selected = 1, backdrop = Backdrop.AURORA) } }
 
+    @Test fun auto_shapes() = paparazzi.snapshot { Frame { HomeMock(columns = 2, folders = 3, selected = 1, auto = true) } }
+    @Test fun auto_shapes_three() = paparazzi.snapshot { Frame { HomeMock(columns = 3, folders = 3, selected = 0, auto = true) } }
+
     @Test fun backdrops() = paparazzi.snapshot {
         Frame {
             Row(Modifier.fillMaxSize()) {
@@ -89,8 +92,11 @@ class ScreensTest {
     private fun Frame(look: LookStyle = LookStyle.CLASSIC, content: @Composable () -> Unit) = HollowTheme(accent, look) { content() }
 
     @Composable
-    private fun HomeMock(columns: Int, folders: Int, selected: Int, ratio: Float = 9f / 16f, backdrop: Backdrop = Backdrop.RAVE) {
-        val gutter = if (columns == 1) 4.dp else 2.dp
+    private fun HomeMock(columns: Int, folders: Int, selected: Int, ratio: Float = 9f / 16f, backdrop: Backdrop = Backdrop.RAVE, auto: Boolean = false) {
+        val gutter = 0.dp
+        val shapes = listOf(0.5625f, 0.5625f, 1.78f, 0.5625f, 0.75f, 0.5625f, 1f, 1.78f, 0.5625f, 0.5625f, 0.8f, 0.5625f)
+        val layout = if (auto) justifyRows(shapes, columns) else null
+        val w = 411.4.dp
         val radius = 0.dp
         val covers = remember { List(12) { fakeFrame(it) } }
         val names = listOf("Phonk edits", "Night drives", "Drift", "JDM", "Saved", "Cosplay x cars", "Slowed", "Reverb", "Archive")
@@ -99,14 +105,15 @@ class ScreensTest {
         Box(Modifier.fillMaxSize().background(Hc.Bg)) {
             HollowBackdrop(backdrop, Modifier.fillMaxSize(), animate = false)
             LazyVerticalGrid(
-                columns = GridCells.Fixed(columns),
+                columns = GridCells.Fixed(if (auto) SPAN_UNITS else columns),
                 contentPadding = PaddingValues(top = 150.dp, bottom = 110.dp),
                 horizontalArrangement = Arrangement.spacedBy(gutter),
                 verticalArrangement = Arrangement.spacedBy(gutter),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(12) { i ->
+                items(12, span = { i -> androidx.compose.foundation.lazy.grid.GridItemSpan(layout?.spans?.get(i) ?: 1) }) { i ->
                     TileVisual(
+                        height = if (layout != null) w / layout.rowSums[i] else null,
                         cover = covers[i],
                         strip = null,
                         name = "Video $i",

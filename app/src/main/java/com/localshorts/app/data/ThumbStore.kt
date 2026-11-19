@@ -27,6 +27,21 @@ class ThumbStore(context: Context) {
 
     fun cut(id: String): Long = prefs.getLong("cut_$id", -2L)
     fun setCut(id: String, ms: Long) = prefs.edit().putLong("cut_$id", ms).apply()
+    /** Each video's shape (width / height, rotation applied), for the Auto tile shape. */
+    private val _ratios = MutableStateFlow(
+        prefs.all.entries.filter { it.key.startsWith("r_") }
+            .mapNotNull { e -> (e.value as? Float)?.let { e.key.substring(2) to it } }.toMap(),
+    )
+    val ratios: StateFlow<Map<String, Float>> = _ratios.asStateFlow()
+    fun hasRatio(id: String) = _ratios.value.containsKey(id)
+    fun setRatios(m: Map<String, Float>) {
+        if (m.isEmpty()) return
+        val e = prefs.edit()
+        m.forEach { (k, v) -> e.putFloat("r_$k", v) }
+        e.apply()
+        _ratios.value = _ratios.value + m
+    }
+
     fun duration(id: String): Long = prefs.getLong("d_$id", -1L)
     fun setDuration(id: String, ms: Long) = prefs.edit().putLong("d_$id", ms).apply()
 

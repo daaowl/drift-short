@@ -54,6 +54,8 @@ enum class Backdrop(val label: String) {
 
 /** Shape of the grid tiles. */
 enum class TileShape(val label: String, val ratio: Float) {
+    /** Each tile takes its own video's shape; rows are packed so nothing leaves a gap. */
+    AUTO("Auto", 0f),
     TALL("Tall", 9f / 16f),
     CLASSIC("Classic", 3f / 4f),
     SQUARE("Square", 1f),
@@ -81,7 +83,7 @@ data class Settings(
     /** The player's "i" toggle: shows the action buttons and video details. */
     val playerInfo: Boolean = true,
     val openStyle: OpenStyle = OpenStyle.HOLLOW,
-    val tileShape: TileShape = TileShape.TALL,
+    val tileShape: TileShape = TileShape.AUTO,
     /** Goat's idea: grid tiles play a short moving preview, and openings grow from its first frame. */
     val previews: Boolean = false,
     val look: LookStyle = LookStyle.CLASSIC,

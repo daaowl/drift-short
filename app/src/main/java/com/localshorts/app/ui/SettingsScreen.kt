@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -344,20 +345,29 @@ private fun Appearance(vm: MainViewModel, s: Settings) {
                             .padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // A tiny preview of the shape
-                        Box(
-                            Modifier
-                                .height(34.dp)
-                                .aspectRatio(t.ratio)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(if (on) accent else Hc.Mute.copy(alpha = 0.5f)),
-                        )
+                        // A tiny preview of the shape (Auto: a portrait and a landscape side by side)
+                        val fill = if (on) accent else Hc.Mute.copy(alpha = 0.5f)
+                        if (t == TileShape.AUTO) {
+                            Row(Modifier.height(34.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Box(Modifier.fillMaxHeight().aspectRatio(9f / 16f).clip(RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp)).background(fill))
+                                Box(Modifier.fillMaxHeight().aspectRatio(1.2f).clip(RoundedCornerShape(topEnd = 5.dp, bottomEnd = 5.dp)).background(fill))
+                            }
+                        } else {
+                            Box(
+                                Modifier
+                                    .height(34.dp)
+                                    .aspectRatio(t.ratio)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(fill),
+                            )
+                        }
                         Text(t.label, color = if (on) accent else Hc.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
         }
     }
+    Footnote("Auto gives every tile its own video's shape and packs the rows so nothing leaves a gap.")
 }
 
 @Composable

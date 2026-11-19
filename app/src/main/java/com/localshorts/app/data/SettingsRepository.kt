@@ -58,7 +58,7 @@ class SettingsRepository(private val context: Context) {
         infoStyle = enumOf(p[kInfoStyle], InfoStyle.ISLAND),
         playerInfo = p[kPlayerInfo] ?: true,
         openStyle = enumOf(p[kOpenStyle], OpenStyle.HOLLOW),
-        tileShape = enumOf(p[kTileShape], TileShape.TALL),
+        tileShape = enumOf(p[kTileShape], TileShape.AUTO),
         // Goat's idea used to be its own opening style; anyone who had it keeps previews on
         previews = p[kPreviews] ?: (p[kOpenStyle] == "GOAT"),
         look = enumOf(p[kLook], LookStyle.CLASSIC),

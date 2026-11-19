@@ -115,6 +115,21 @@ class ThumbnailLoader(private val context: Context, private val store: ThumbStor
         }
     }
 
+    /** Reads the video's display shape from its metadata, without decoding any frames. */
+    fun probeRatio(v: VideoItem): Float? = try {
+        val r = open(v)
+        try {
+            val w = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloatOrNull() ?: 0f
+            val h = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloatOrNull() ?: 0f
+            val rot = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+            if (w > 0f && h > 0f) (if (rot % 180 != 0) h / w else w / h) else null
+        } finally {
+            r.release()
+        }
+    } catch (_: Throwable) {
+        null
+    }
+
     private fun open(v: VideoItem) = MediaMetadataRetriever().apply { setDataSource(context, v.uri) }
 
     private fun duration(v: VideoItem, r: MediaMetadataRetriever): Long {

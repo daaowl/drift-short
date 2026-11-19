@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -73,6 +74,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 hollow.library.refresh(it)
             }
         }
+        // Auto tile shape: learn each video's shape from its metadata, a batch at a time
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            combine(settings.map { it.tileShape == TileShape.AUTO }.distinctUntilChanged(), hollow.library.videos) { on, v -> if (on) v else emptyList() }
+                .collectLatest { videos ->
+                    val batch = HashMap<String, Float>()
+                    for (v in videos) {
+                        if (thumbStore.hasRatio(v.id)) continue
+                        thumbs.probeRatio(v)?.let { batch[v.id] = it }
+                        if (batch.size >= 12) {
+                            thumbStore.setRatios(batch.toMap())
+                            batch.clear()
+                        }
+                    }
+                    thumbStore.setRatios(batch)
+                }
+        }
         // Keep the real launcher icon in line with the saved choice (covers restores and reinstalls)
         viewModelScope.launch {
             settings.filter { it.loaded }.map { it.icon }.distinctUntilChanged().collect {
@@ -80,6 +97,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    val ratios: StateFlow<Map<String, Float>> = hollow.thumbStore.ratios
 
     fun refresh() = viewModelScope.launch { hollow.library.refresh(settings.value.folders) }
 
