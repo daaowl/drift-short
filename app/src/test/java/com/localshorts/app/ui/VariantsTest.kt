@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,6 +93,8 @@ class VariantsTest {
                 }
                 Spacer(Modifier.height(14.dp))
                 val labels = listOf("Latest", "Oldest", "Most watched", "Favourites")
+                Row(Modifier.fillMaxWidth().padding(end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
                 when (tabs) {
                     Tabs.CHIPS -> Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         labels.forEachIndexed { i, l ->
@@ -125,9 +129,49 @@ class VariantsTest {
                         }
                     }
                 }
+                }
+                Spacer(Modifier.width(8.dp))
+                Circle { GlyphIcon(Glyph.SORT, Color.White, size = 20.dp) }
+                }
             }
             Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)) {
-                FolderIsland(fs, "a", emptySet(), lib, Color(0xFFE5484D), {}, {}, {})
+                ClearIsland(font)
+            }
+        }
+    }
+
+    /** See-through folder switcher: light frosted tint and a hairline edge, white selected pill. */
+    @Composable
+    private fun ClearIsland(font: FontFamily) {
+        val shape = RoundedCornerShape(28.dp)
+        Row(
+            Modifier
+                .clip(shape)
+                .background(Color(0x2EFFFFFF))
+                .border(0.8.dp, Color(0x40FFFFFF), shape)
+                .padding(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf("All", "Phonk edits", "Night drives").forEachIndexed { i, l ->
+                val on = i == 1
+                Text(
+                    l,
+                    style = TextStyle(fontFamily = font, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (on) Color(0xFF14121A) else Color.White),
+                    modifier = Modifier.clip(RoundedCornerShape(22.dp)).background(if (on) Color.White else Color.Transparent).padding(horizontal = 15.dp, vertical = 11.dp),
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0x26FFFFFF)), contentAlignment = Alignment.Center) {
+                GlyphIcon(Glyph.GRID, Color.White, size = 18.dp)
+            }
+        }
+    }
+
+    @Test fun gradient_full() = paparazzi.snapshot {
+        HollowTheme(Color(0xFFE5484D)) {
+            Box(Modifier.fillMaxSize()) {
+                MeshGradient(Modifier.fillMaxSize(), animate = false)
+                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)) { ClearIsland(fredoka) }
             }
         }
     }

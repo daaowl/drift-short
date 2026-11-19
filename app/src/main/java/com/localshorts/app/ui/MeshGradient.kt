@@ -19,13 +19,13 @@ import kotlin.math.sin
 data class MeshPalette(val base: Color, val blobs: List<Color>)
 
 val RavePalette = MeshPalette(
-    base = Color(0xFF3B2A6E),
+    base = Color(0xFF5B3DB0),
     blobs = listOf(
-        Color(0xFFB8457A), // rose, top left
-        Color(0xFF6A1FB0), // violet, right
-        Color(0xFF2F57B4), // cobalt, middle left
-        Color(0xFF8C5A2E), // amber brown, bottom left
-        Color(0xFF3A2FA0), // indigo, bottom right
+        Color(0xFFF0559E), // hot rose, top left
+        Color(0xFF9B2CF0), // electric violet, right
+        Color(0xFF3D74F2), // bright cobalt, middle left
+        Color(0xFFE08A3C), // warm amber, bottom left
+        Color(0xFF5546F0), // vivid indigo, bottom right
     ),
 )
 
@@ -48,7 +48,7 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
         drawRect(palette.base)
         // (x, y, radius) as fractions of the screen, each wobbling on its own slow orbit
         val spots = listOf(
-            Triple(0.18f + 0.06f * cos(t), 0.12f + 0.04f * sin(t), 0.75f),
+            Triple(0.18f + 0.06f * cos(t), 0.12f + 0.04f * sin(t), 0.85f),
             Triple(0.95f + 0.05f * sin(t * 0.8f), 0.30f + 0.06f * cos(t * 0.7f), 0.70f),
             Triple(0.10f + 0.05f * sin(t * 0.9f), 0.55f + 0.05f * cos(t), 0.65f),
             Triple(0.05f + 0.06f * cos(t * 0.6f), 0.95f + 0.03f * sin(t * 1.1f), 0.70f),
@@ -60,8 +60,8 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
             val r = maxOf(w, h) * fr
             drawCircle(
                 Brush.radialGradient(
-                    0f to c.copy(alpha = 0.95f),
-                    0.45f to c.copy(alpha = 0.55f),
+                    0f to c,
+                    0.5f to c.copy(alpha = 0.75f),
                     1f to c.copy(alpha = 0f),
                     center = center,
                     radius = r,
@@ -73,7 +73,7 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
         // a soft central haze ties the colours together
         drawRect(
             Brush.radialGradient(
-                listOf(Color(0x33FFFFFF), Color.Transparent),
+                listOf(Color(0x40FFFFFF), Color.Transparent),
                 center = Offset(w * 0.45f, h * 0.38f),
                 radius = maxOf(w, h) * 0.45f,
             ),
