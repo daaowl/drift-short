@@ -12,6 +12,7 @@ import com.localshorts.app.data.Backdrop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,7 +88,7 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
         infiniteRepeatable(tween(if (animate) 26000 else 1, easing = LinearEasing)),
         label = "mesh-t",
     )
-    Canvas(modifier) {
+    Canvas(modifier.clipToBounds()) {
         val w = size.width
         val h = size.height
         drawRect(palette.base)
