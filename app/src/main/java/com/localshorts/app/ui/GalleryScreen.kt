@@ -296,6 +296,10 @@ fun GalleryScreen(
                             } else {
                                 gridWidth / cols / fixedRatio
                             }
+                            // Optional thin gaps: inner edges only, so the grid still runs edge to edge
+                            val g = if (settings.tileGaps) (if (cols == 1) 4.dp else 2.dp) else 0.dp
+                            val first = layout?.rowStart?.getOrNull(index) ?: (index % cols == 0)
+                            val lastInRow = layout?.rowEnd?.getOrNull(index) ?: (index % cols == cols - 1 || index == videos.lastIndex)
                             // Shape changes glide instead of snapping
                             val tileHeight by animateDpAsState(target, spring(dampingRatio = 0.86f, stiffness = 380f), label = "tile-h")
                             Thumb(
@@ -313,6 +317,7 @@ fun GalleryScreen(
                                 enterDelay = if (System.currentTimeMillis() - appearAt < 700) (index.coerceAtMost(14) * 28) else -1,
                                 modifier = Modifier
                                     .animateItemPlacement(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow))
+                                    .padding(start = if (first) 0.dp else g / 2, end = if (lastInRow) 0.dp else g / 2, bottom = g)
                                     .onGloballyPositioned { bounds[v.id] = it.boundsInRoot() },
                                 onClick = {
                                     focus.clearFocus()
@@ -1332,7 +1337,7 @@ internal const val SPAN_UNITS = 240
 internal const val DEFAULT_RATIO = 9f / 16f
 
 /** Per-item grid spans and, for each item, the summed shape of its row (row height = width / sum). */
-internal class RowLayout(val spans: IntArray, val rowSums: FloatArray)
+internal class RowLayout(val spans: IntArray, val rowSums: FloatArray, val rowStart: BooleanArray, val rowEnd: BooleanArray)
 
 /**
  * Packs videos into rows like a photo wall: every tile keeps (close to) its video's own shape and all
@@ -1344,6 +1349,8 @@ internal fun justifyRows(ratios: List<Float>, columns: Int): RowLayout {
     val n = ratios.size
     val spans = IntArray(n)
     val sums = FloatArray(n)
+    val starts = BooleanArray(n)
+    val ends = BooleanArray(n)
     val minR = if (columns == 1) 0.8f else 0.5f
     val r = FloatArray(n) { ratios[it].coerceIn(minR, 2.4f) }
     val target = columns * DEFAULT_RATIO.coerceAtLeast(if (columns == 1) 0.8f else 0f)
@@ -1369,8 +1376,10 @@ internal fun justifyRows(ratios: List<Float>, columns: Int): RowLayout {
             spans[k] = (end - used).coerceAtLeast(1)
             used += spans[k]
             sums[k] = rowSum
+            starts[k] = k == i
+            ends[k] = k == j - 1 && rowSum == sum
         }
         i = j
     }
-    return RowLayout(spans, sums)
+    return RowLayout(spans, sums, starts, ends)
 }

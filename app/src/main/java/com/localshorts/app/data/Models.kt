@@ -88,6 +88,8 @@ data class Settings(
     val previews: Boolean = false,
     val look: LookStyle = LookStyle.CLASSIC,
     val backdrop: Backdrop = Backdrop.RAVE,
+    /** Thin gaps between grid tiles (the 1.0 / 1.1 look). Off = tiles touch. */
+    val tileGaps: Boolean = false,
     val loaded: Boolean = false,
 )
 

@@ -35,6 +35,7 @@ class SettingsRepository(private val context: Context) {
     private val kPreviews = booleanPreferencesKey("previews")
     private val kLook = stringPreferencesKey("look")
     private val kBackdrop = stringPreferencesKey("backdrop")
+    private val kGaps = booleanPreferencesKey("tile_gaps")
 
     val flow: Flow<Settings> = context.settingsStore.data.map { p -> read(p) }
 
@@ -63,6 +64,7 @@ class SettingsRepository(private val context: Context) {
         previews = p[kPreviews] ?: (p[kOpenStyle] == "GOAT"),
         look = enumOf(p[kLook], LookStyle.CLASSIC),
         backdrop = enumOf(p[kBackdrop], Backdrop.RAVE),
+        tileGaps = p[kGaps] ?: false,
         loaded = true,
     )
 
@@ -87,6 +89,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPreviews(on: Boolean) = context.settingsStore.edit { it[kPreviews] = on }
     suspend fun setLook(l: LookStyle) = context.settingsStore.edit { it[kLook] = l.name }
     suspend fun setBackdrop(b: Backdrop) = context.settingsStore.edit { it[kBackdrop] = b.name }
+    suspend fun setTileGaps(on: Boolean) = context.settingsStore.edit { it[kGaps] = on }
 
     suspend fun addFolder(f: Folder) = context.settingsStore.edit { p ->
         val list = decodeFolders(p[kFolders]).filterNot { it.uri == f.uri } + f
