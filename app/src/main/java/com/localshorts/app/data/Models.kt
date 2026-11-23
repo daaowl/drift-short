@@ -64,6 +64,8 @@ data class Gestures(
     val sideZone: Float = 0.3f,
     val skipBackS: Int = 5,
     val skipForwardS: Int = 5,
+    /** Swipe up or down in the player to move to the next / previous video. */
+    val swipeVideos: Boolean = true,
     val swipeSeek: Boolean = true,
     /** Height of the bottom area where a sideways swipe seeks. */
     val seekZone: Float = 0.5f,

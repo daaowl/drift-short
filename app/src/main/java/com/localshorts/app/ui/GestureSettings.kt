@@ -227,7 +227,7 @@ fun GestureMap(
                     val edge = wDp * 0.25f
                     if (brightnessOn) Label("☀", 0.dp, 40.dp, edge, "↕")
                     if (volumeOn) Label("🔊", wDp - edge, 40.dp, edge, "↕")
-                    Label("↕", 0.dp, hDp * 0.22f, wDp, "Next video")
+                    if (g.swipeVideos) Label("↕", 0.dp, hDp * 0.22f, wDp, "Next video") else Label("—", 0.dp, hDp * 0.22f, wDp, "Video change off")
                     if (g.swipeSeek) {
                         val top = hDp * (1 - g.seekZone)
                         Label("⟷  Seek", 0.dp, top + (hDp - top) / 2 - 14.dp, wDp, if (g.seekRangeS == 0) "whole video" else "${g.seekRangeS}s per swipe")

@@ -2,6 +2,7 @@ package com.localshorts.app.ui.player
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.provider.Settings as SystemSettings
 import android.graphics.Bitmap
@@ -261,7 +262,28 @@ fun PlayerScreen(
     }
 
     val current = videos.getOrNull(dominant)
-    val close = { current?.let { onClose(it.id) } ?: Unit }
+
+    // Rotate: turns the whole player sideways (the screen, not just the picture), back upright on close
+    var landscape by remember { mutableStateOf(false) }
+    val activity = context as? Activity
+    val originalOrientation = remember { activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    DisposableEffect(Unit) { onDispose { activity?.requestedOrientation = originalOrientation } }
+    LaunchedEffect(landscape) {
+        activity?.requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else originalOrientation
+    }
+    fun close() {
+        val id = videos.getOrNull(dominant)?.id ?: return
+        if (landscape) {
+            // Stand the screen back up first so the video can fly home into the grid
+            landscape = false
+            scope.launch {
+                delay(420)
+                onClose(id)
+            }
+        } else {
+            onClose(id)
+        }
+    }
 
     BackHandler {
         when {
@@ -427,7 +449,7 @@ fun PlayerScreen(
             state = pager,
             beyondBoundsPageCount = 1,
             key = { videos[it].id },
-            userScrollEnabled = entered && !closing && !editing,
+            userScrollEnabled = entered && !closing && !editing && settings.gestures.swipeVideos,
             flingBehavior = PagerDefaults.flingBehavior(state = pager, snapAnimationSpec = settleSpec(settings.transition)),
             modifier = Modifier
                 .fillMaxSize()
@@ -484,7 +506,7 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SmallRoundButton(onClick = close, label = "Back") {
+                SmallRoundButton(onClick = { close() }, label = "Back") {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.weight(1f))
@@ -573,6 +595,11 @@ fun PlayerScreen(
                             end = settings.end,
                             accent = accent,
                             onFavourite = { vm.toggleFavourite(current.id) },
+                            landscape = landscape,
+                            onRotate = {
+                                landscape = !landscape
+                                poke++
+                            },
                             onThumbnail = {
                                 val ms = coordinator.positionNow()
                                 vm.setThumbOverride(current.id, ms)
@@ -1043,6 +1070,8 @@ private fun ActionStack(
     end: EndBehavior,
     accent: Color,
     onFavourite: () -> Unit,
+    landscape: Boolean,
+    onRotate: () -> Unit,
     onThumbnail: () -> Unit,
     onSpeed: () -> Unit,
     onSpeedBounds: (Rect) -> Unit,
@@ -1056,6 +1085,9 @@ private fun ActionStack(
                 tint = if (favourite) accent else Color.White,
                 modifier = Modifier.size(19.dp),
             )
+        }
+        ActionCircle(if (landscape) "Rotate back upright" else "Rotate to landscape", onRotate) {
+            GlyphIcon(Glyph.ROTATE, if (landscape) accent else Color.White, size = 19.dp)
         }
         ActionCircle("Use this frame as thumbnail", onThumbnail) {
             GlyphIcon(Glyph.IMAGE, Color.White, size = 19.dp)

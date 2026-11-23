@@ -614,6 +614,10 @@ private fun Gestures(vm: MainViewModel, s: Settings) {
         GestureLayer.SWIPE -> {
             Spacer(Modifier.height(10.dp))
             Group {
+                SwitchRow("Swipe to change videos", "Swipe up or down for the next or previous video", g.swipeVideos, accent, padded = true) {
+                    save(g.copy(swipeVideos = it))
+                }
+                Divider(inset = 16.dp)
                 SwitchRow("Swipe to seek", "Slide sideways near the bottom to move through the video", g.swipeSeek, accent, padded = true) {
                     save(g.copy(swipeSeek = it))
                 }
@@ -630,7 +634,7 @@ private fun Gestures(vm: MainViewModel, s: Settings) {
                     }
                 }
             }
-            Footnote("Swiping up or down in the middle always changes videos. Short clips are covered whole by one swipe.")
+            Footnote(if (g.swipeVideos) "Short clips are covered whole by one seek swipe." else "With video changes off, a video stays put until you go back to the gallery (or it ends with Next).")
         }
     }
 }

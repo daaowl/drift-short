@@ -12,11 +12,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Small stroke icons that are not in the core Material icon set, drawn on a 24-unit grid. */
-enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK, INFO, SPEED, REPEAT, NEXT, STOP, PALETTE, PLAY, HAND }
+enum class Glyph { FOLDER, SORT, GRID, SUN, VOLUME, DOTS, IMAGE, LOCK, INFO, SPEED, REPEAT, NEXT, STOP, PALETTE, PLAY, HAND, ROTATE }
 
 @Composable
 fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
@@ -120,6 +121,14 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 22.dp, modifier: Modifier = 
             }
             Glyph.STOP -> {
                 drawRoundRect(tint, p(6.5f, 6.5f), Size(11f * u, 11f * u), CornerRadius(2f * u))
+            }
+            Glyph.ROTATE -> {
+                // A phone tipped on its side, with a curved arrow turning it
+                rotate(-45f, p(12f, 13f)) {
+                    drawRoundRect(tint, p(8.5f, 7f), Size(7f * u, 12f * u), CornerRadius(1.8f * u), style = stroke)
+                }
+                drawArc(tint, 200f, 110f, false, p(3f, 2.5f), Size(13f * u, 13f * u), style = stroke)
+                drawPath(Path().apply { moveTo(12.6f * u, 1.6f * u); lineTo(15.4f * u, 4.2f * u); lineTo(12.2f * u, 5.6f * u) }, tint, style = stroke)
             }
         }
     }

@@ -45,6 +45,7 @@ class SettingsRepository(private val context: Context) {
     private val kgBack = intPreferencesKey("g_back")
     private val kgFwd = intPreferencesKey("g_fwd")
     private val kgSeek = booleanPreferencesKey("g_seek")
+    private val kgVideos = booleanPreferencesKey("g_videos")
     private val kgSeekZone = floatPreferencesKey("g_seek_zone")
     private val kgSeekRange = intPreferencesKey("g_seek_range")
 
@@ -86,6 +87,7 @@ class SettingsRepository(private val context: Context) {
             skipBackS = p[kgBack] ?: 5,
             skipForwardS = p[kgFwd] ?: 5,
             swipeSeek = p[kgSeek] ?: true,
+            swipeVideos = p[kgVideos] ?: true,
             seekZone = (p[kgSeekZone] ?: 0.5f).coerceIn(0.2f, 0.8f),
             seekRangeS = p[kgSeekRange] ?: 60,
         ),
@@ -124,6 +126,7 @@ class SettingsRepository(private val context: Context) {
         it[kgBack] = g.skipBackS
         it[kgFwd] = g.skipForwardS
         it[kgSeek] = g.swipeSeek
+        it[kgVideos] = g.swipeVideos
         it[kgSeekZone] = g.seekZone
         it[kgSeekRange] = g.seekRangeS
     }
