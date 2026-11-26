@@ -140,6 +140,8 @@ val APP_ICONS: List<AppIcon> = listOf(
     AppIcon("orbit", "Ocean", "com.localshorts.app.IconOrbit", "logo_orbit"),
     AppIcon("mono", "Noir", "com.localshorts.app.IconMono", "logo_mono"),
     AppIcon("prism", "Aurora", "com.localshorts.app.IconPrism", "logo_prism"),
+    AppIcon("play", "Play", "com.localshorts.app.IconPlay", "logo_play"),
+    AppIcon("noirplay", "Noir Play", "com.localshorts.app.IconNoirPlay", "logo_noirplay"),
 )
 
 val SPEEDS: List<Float> = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.25f)

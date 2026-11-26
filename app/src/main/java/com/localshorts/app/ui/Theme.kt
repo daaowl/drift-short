@@ -182,6 +182,8 @@ fun logoRes(iconId: String): Int = when (iconId) {
     "orbit" -> R.drawable.logo_orbit
     "mono" -> R.drawable.logo_mono
     "prism" -> R.drawable.logo_prism
+    "play" -> R.drawable.logo_play
+    "noirplay" -> R.drawable.logo_noirplay
     else -> R.drawable.logo_hollow
 }
 

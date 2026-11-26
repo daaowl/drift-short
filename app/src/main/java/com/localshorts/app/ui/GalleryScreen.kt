@@ -261,7 +261,7 @@ fun GalleryScreen(
         ) {
             // Everything that scrolls is the glass's backdrop
             Box(Modifier.fillMaxSize().haze(state = haze)) {
-                HollowBackdrop(settings.backdrop, Modifier.fillMaxSize(), animate = videos.isEmpty())
+                HollowBackdrop(settings.backdrop, Modifier.fillMaxSize())
                 if (videos.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(top = with(density) { (statusTop + headerPx).toDp() })) {
                         EmptyState(

@@ -85,7 +85,7 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
     val t by drift.animateFloat(
         0f,
         (Math.PI * 2).toFloat(),
-        infiniteRepeatable(tween(if (animate) 26000 else 1, easing = LinearEasing)),
+        infiniteRepeatable(tween(if (animate) 18000 else 1, easing = LinearEasing)),
         label = "mesh-t",
     )
     Canvas(modifier.clipToBounds()) {
@@ -94,12 +94,13 @@ fun MeshGradient(modifier: Modifier = Modifier, palette: MeshPalette = RavePalet
         drawRect(palette.base)
         // (x, y, radius) as fractions of the screen, each wobbling on its own slow orbit
         val spots = listOf(
-            Triple(0.30f + 0.05f * cos(t), 0.04f + 0.03f * sin(t), 0.55f),
-            Triple(1.00f + 0.04f * sin(t * 0.8f), 0.22f + 0.05f * cos(t * 0.7f), 0.55f),
-            Triple(0.05f + 0.05f * sin(t * 0.9f), 0.50f + 0.05f * cos(t), 0.50f),
-            Triple(0.95f + 0.04f * cos(t * 0.7f), 0.62f + 0.04f * sin(t * 0.9f), 0.45f),
-            Triple(0.00f + 0.05f * cos(t * 0.6f), 0.98f + 0.03f * sin(t * 1.1f), 0.60f),
-            Triple(1.00f + 0.04f * cos(t * 1.2f), 1.00f + 0.04f * sin(t * 0.5f), 0.55f),
+            // Each blob wanders on its own loop (whole-number speeds keep the cycle seamless)
+            Triple(0.30f + 0.16f * cos(t), 0.04f + 0.08f * sin(t), 0.55f + 0.05f * sin(t * 2f)),
+            Triple(1.00f - 0.10f * sin(t), 0.22f + 0.12f * cos(t * 2f), 0.55f),
+            Triple(0.05f + 0.14f * sin(t * 2f), 0.50f + 0.10f * cos(t), 0.50f + 0.06f * cos(t)),
+            Triple(0.95f - 0.12f * cos(t), 0.62f + 0.10f * sin(t * 2f), 0.45f),
+            Triple(0.00f + 0.14f * cos(t * 2f), 0.98f - 0.08f * sin(t), 0.60f - 0.05f * sin(t)),
+            Triple(1.00f - 0.12f * sin(t * 2f), 1.00f - 0.08f * cos(t), 0.55f),
         )
         spots.forEachIndexed { i, (fx, fy, fr) ->
             val c = palette.blobs[i % palette.blobs.size]

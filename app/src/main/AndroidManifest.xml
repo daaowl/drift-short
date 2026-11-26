@@ -90,5 +90,33 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".IconPlay"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_play"
+            android:roundIcon="@mipmap/ic_launcher_play"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconNoirPlay"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_noirplay"
+            android:roundIcon="@mipmap/ic_launcher_noirplay"
+            android:label="Hollow"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
     </application>
 </manifest>

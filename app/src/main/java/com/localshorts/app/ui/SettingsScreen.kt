@@ -116,7 +116,7 @@ fun SettingsScreen(vm: MainViewModel, activity: MainActivity, onBack: () -> Unit
     BackHandler(enabled = page != null) { page = null }
 
     Box(Modifier.fillMaxSize()) {
-    HollowBackdrop(s.backdrop, Modifier.fillMaxSize(), dim = 0.6f, animate = false)
+    HollowBackdrop(s.backdrop, Modifier.fillMaxSize(), dim = 0.6f)
     Column(
         Modifier
             .fillMaxSize()
@@ -302,7 +302,10 @@ private fun Appearance(vm: MainViewModel, s: Settings) {
 
     Header("App icon")
     Group(padded = true) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             APP_ICONS.forEach { icon ->
                 val on = s.icon == icon.id
                 Column(
